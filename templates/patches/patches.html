@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .patch-row { transition: all 0.2s ease; }
+    .patch-row:hover { background-color: #f8f9fa; }
+
+    /* Consistent icon styling */
+    .btn-icon { opacity: 0.6; transition: opacity 0.2s; border: none; background: none; }
+    .btn-icon:hover { opacity: 1; }
+
+    /* Specific colors for action types */
+    .btn-trash { color: #dc3545; }
+    .btn-apply { color: #0d6efd; /* Bootstrap primary blue */ }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+            <h2 class="mb-0">My Patches</h2>
+            {% if patches %}
+                <a href="{% url 'add_patch' %}?next={{ request.path|urlencode }}" class="btn btn-primary btn-sm shadow-sm">
+                    + Add New Patch
+                </a>
+            {% endif %}
+        </div>
+
+        <ul class="list-group shadow-sm">
+            {% for patch in patches %}
+                <li class="list-group-item d-flex justify-content-between align-items-center patch-row py-3">
+
+                    <!-- Left Section: Name and Badge -->
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{% url 'edit_patch' patch.pk %}?next={{ request.path|urlencode }}" class="text-decoration-none fw-bold text-dark">
+                            {{ patch.name }}
+                        </a>
+
+                        <!-- Fixed-width container for the badge prevents layout shifting -->
+                        <div style="min-width: 60px;">
+                            {% if patch.id == active_patch_id %}
+                                <span class="badge rounded-pill bg-success px-2" style="font-size: 0.6rem;">ACTIVE</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Right Section: Action Icons Container -->
+                    <div class="d-flex gap-3 align-items-center">
+                        <!-- Apply Patch Button -->
+                        <a href="{% url 'apply_patch' patch.pk %}" class="btn-icon btn-apply" title="Apply Patch Now">
+                            <span style="font-size: 1.1rem;">⚡</span>
+                        </a>
+
+                        <!-- Delete Form (client-side checks usage first) -->
+                        <form action="{% url 'edit_patch' patch.pk %}" method="POST" class="m-0 delete-patch-form"
+                              data-patch-id="{{ patch.pk }}" data-patch-name="{{ patch.name|escapejs }}"
+                              data-usage-url="{% url 'patch_usage' patch.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="_method" value="DELETE">
+                            <button type="submit" class="btn-icon btn-trash delete-patch-btn" title="Delete Patch">
+                                <span style="font-size: 1.2rem;">🗑️</span>
+                            </button>
+                        </form>
+                    </div>
+
+                </li>
+            {% empty %}
+                <li class="list-group-item list-group-item-info text-center py-5 border-0 rounded">
+                    <p class="mb-3 text-muted">Your patch library is empty.</p>
+                    <a href="{% url 'add_patch' %}" class="btn btn-primary shadow-sm px-4">
+                        Create Your First Patch
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!-- Modal: Patch Usage Info -->
+<div class="modal fade" id="patch-usage-modal" tabindex="-1" aria-labelledby="patchUsageModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="patchUsageModalLabel">Cannot Delete Patch</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="patch-usage-body">
+        <!-- Filled by JS -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <a href="#" class="btn btn-primary" id="patch-usage-view-song" style="display:none;">View Song</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const modalEl = document.getElementById('patch-usage-modal');
+    const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+    const bodyEl = document.getElementById('patch-usage-body');
+    const viewBtn = document.getElementById('patch-usage-view-song');
+
+    document.querySelectorAll('.delete-patch-form').forEach(form => {
+        form.addEventListener('submit', function(e){
+            e.preventDefault();
+            const usageUrl = form.dataset.usageUrl;
+            const patchName = form.dataset.patchName || '';
+
+            fetch(usageUrl, { credentials: 'same-origin' })
+                .then(resp => resp.json())
+                .then(data => {
+                    if(data.used){
+                        // Show modal with songs using the patch
+                        if(Array.isArray(data.songs) && data.songs.length){
+                            const listHtml = data.songs.map(s => `<div><strong>${s.name}</strong></div>`).join('');
+                            bodyEl.innerHTML = `<p>The patch <strong>${patchName}</strong> is used by the following song(s):</p>${listHtml}`;
+                            // Link to first song edit page for convenience
+                            viewBtn.style.display = 'inline-block';
+                            viewBtn.href = '{% url "edit_song" 0 %}'.replace('/0/','/'+data.songs[0].id+'/');
+                        } else {
+                            bodyEl.textContent = 'This patch is in use by one or more song entries.';
+                            viewBtn.style.display = 'none';
+                        }
+                        modal && modal.show();
+                    } else {
+                        // Not in use: confirm deletion and submit
+                        if(confirm('Permanently delete the patch "' + patchName + '"?')){
+                            // submit the form programmatically
+                            form.submit();
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error('Error checking patch usage:', err);
+                    // Fallback: ask for confirmation and delete
+                    if(confirm('Permanently delete the patch "' + patchName + '"?')){
+                        form.submit();
+                    }
+                });
+        });
+    });
+});
+</script>
+
+{% endblock content %}

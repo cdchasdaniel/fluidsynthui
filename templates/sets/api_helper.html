@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .api-panel { max-width: 820px; margin: 24px auto; }
+    .json-output { white-space: pre-wrap; background:#f8f9fa; padding:12px; border-radius:6px; border:1px solid rgba(0,0,0,0.04); max-height:360px; overflow:auto; }
+</style>
+
+<div class="container api-panel">
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <strong>Sets API Helper</strong>
+            <span class="small text-muted ms-2">Call active-set JSON endpoints</span>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label small">Active set songs</label>
+                <select id="song-select" class="form-select">
+                    <option value="">-- choose song (or enter id below) --</option>
+                </select>
+            </div>
+
+            <div class="row g-2 mb-3">
+                <div class="col">
+                    <input id="song-id-input" type="number" class="form-control" placeholder="Song ID (pk)" />
+                </div>
+                <div class="col-auto">
+                    <button id="btn-refresh-songs" class="btn btn-outline-secondary">Refresh songs</button>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-3">
+                <button id="btn-info" class="btn btn-primary">Get Song Info</button>
+                <button id="btn-prev" class="btn btn-secondary">Get Prev</button>
+                <button id="btn-next" class="btn btn-secondary">Get Next</button>
+                <button id="btn-activate-prev" class="btn btn-warning">Activate Prev</button>
+                <button id="btn-activate-next" class="btn btn-warning">Activate Next</button>
+                <button id="btn-clear" class="btn btn-light">Clear</button>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small">Response</label>
+                <div id="json-output" class="json-output">No response yet.</div>
+            </div>
+
+            <div class="mb-1 small text-muted">Notes: These endpoints act on the currently active Set. Use the Sets page to mark a Set active.</div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    const select = document.getElementById('song-select');
+    const songInput = document.getElementById('song-id-input');
+    const output = document.getElementById('json-output');
+
+    const refreshSongs = () => {
+        select.innerHTML = '<option value="">Loading…</option>';
+        output.textContent = 'Fetching songs…';
+        fetch('{% url "active_set_songs" %}', { credentials: 'same-origin' })
+            .then(r => {
+                if(!r.ok){
+                    return r.text().then(txt => { throw new Error(`HTTP ${r.status}: ${txt.substring(0,200)}`); });
+                }
+                const ct = r.headers.get('content-type') || '';
+                if(!ct.includes('application/json')){
+                    return r.text().then(txt => { throw new Error(`Expected JSON but got: ${txt.substring(0,200)}`); });
+                }
+                return r.json();
+            })
+            .then(json => {
+                select.innerHTML = '<option value="">-- choose song (or enter id below) --</option>';
+                if(json.songs && json.songs.length){
+                    let activeSongId = null;
+                    json.songs.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.id;
+                        opt.textContent = `${s.order || ''} ${s.name}`.trim();
+                        if(s.active){
+                            opt.textContent = '★ ' + opt.textContent;
+                            activeSongId = s.id;
+                        }
+                        select.appendChild(opt);
+                    });
+                    // Auto-select the active song
+                    if(activeSongId){
+                        select.value = activeSongId;
+                        songInput.value = activeSongId;
+                    }
+                    output.textContent = 'Loaded ' + json.songs.length + ' song(s) from active set.';
+                } else if(json.error){
+                    select.innerHTML = `<option value="">Error: ${json.error}</option>`;
+                    output.textContent = JSON.stringify(json, null, 2);
+                } else {
+                    select.innerHTML = '<option value="">(No songs in active set)</option>';
+                    output.textContent = JSON.stringify(json, null, 2);
+                }
+            }).catch(err => { 
+                select.innerHTML = `<option value="">Error loading songs</option>`;
+                output.textContent = 'Error fetching songs: '+err;
+            });
+    };
+
+    document.getElementById('btn-refresh-songs').addEventListener('click', (e) => { e.preventDefault(); refreshSongs(); });
+
+    select.addEventListener('change', () => {
+        songInput.value = select.value;
+    });
+
+    function showResult(obj){
+        output.textContent = JSON.stringify(obj, null, 2);
+    }
+
+    document.getElementById('btn-info').addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = songInput.value;
+        if(!id){ output.textContent = 'Enter a song id or select one from the dropdown.'; return; }
+        fetch(`/sets/active/song/${id}/`).then(r => r.json()).then(showResult).catch(err => output.textContent = 'Error: '+err);
+    });
+
+    document.getElementById('btn-prev').addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = songInput.value;
+        if(!id){ output.textContent = 'Enter a song id or select one from the dropdown.'; return; }
+        fetch(`/sets/active/song/${id}/prev/`).then(r => r.json()).then(showResult).catch(err => output.textContent = 'Error: '+err);
+    });
+
+    document.getElementById('btn-next').addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = songInput.value;
+        if(!id){ output.textContent = 'Enter a song id or select one from the dropdown.'; return; }
+        fetch(`/sets/active/song/${id}/next/`).then(r => r.json()).then(showResult).catch(err => output.textContent = 'Error: '+err);
+    });
+
+    // CSRF helper
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    document.getElementById('btn-activate-next').addEventListener('click', (e) => {
+        e.preventDefault();
+        output.textContent = 'Activating next...';
+        fetch('/sets/active/song/next/activate/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken') || ''
+            }
+        })
+        .then(r => r.json().then(j => ({ ok: r.ok, status: r.status, body: j })).catch(() => ({ ok: r.ok, status: r.status, body: null })))
+        .then(obj => {
+            if(!obj.ok){
+                output.textContent = `Error ${obj.status}: ${JSON.stringify(obj.body||{})}`;
+            } else {
+                output.textContent = 'Activated: ' + JSON.stringify(obj.body, null, 2);
+                // Update the dropdown/input to the newly activated song
+                if(obj.body && obj.body.song && obj.body.song.id){
+                    songInput.value = obj.body.song.id;
+                    select.value = obj.body.song.id;
+                }
+            }
+        })
+        .catch(err => { output.textContent = 'Error: '+err; });
+    });
+
+    document.getElementById('btn-activate-prev').addEventListener('click', (e) => {
+        e.preventDefault();
+        output.textContent = 'Activating previous...';
+        fetch('/sets/active/song/prev/activate/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken') || ''
+            }
+        })
+        .then(r => r.json().then(j => ({ ok: r.ok, status: r.status, body: j })).catch(() => ({ ok: r.ok, status: r.status, body: null })))
+        .then(obj => {
+            if(!obj.ok){
+                output.textContent = `Error ${obj.status}: ${JSON.stringify(obj.body||{})}`;
+            } else {
+                output.textContent = 'Activated: ' + JSON.stringify(obj.body, null, 2);
+                // Update the dropdown/input to the newly activated song
+                if(obj.body && obj.body.song && obj.body.song.id){
+                    songInput.value = obj.body.song.id;
+                    select.value = obj.body.song.id;
+                }
+            }
+        })
+        .catch(err => { output.textContent = 'Error: '+err; });
+    });
+
+    document.getElementById('btn-clear').addEventListener('click', (e) => { e.preventDefault(); output.textContent = 'No response yet.'; });
+
+    // Auto-refresh on load
+    refreshSongs();
+})();
+</script>
+
+{% endblock %}

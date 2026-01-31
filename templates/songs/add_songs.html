@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* DAW-style consistency from Patch page */
+    .tempo-input { width: 100px !important; text-align: center; font-weight: bold; }
+    .patch-select-width { width: 100% !important; }
+    .notes-area { min-height: 120px; resize: none; font-size: 0.9rem; }
+
+    .song-card {
+        transition: all 0.2s ease;
+        border: 1px solid #dee2e6;
+        background-color: #fff;
+    }
+    
+    .label-caps {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #6c757d;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+</style>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3">
+                    <h4 class="mb-0 text-center">{% if instance %}Edit{% else %}New{% endif %} Song</h4>
+                </div>
+
+                <div class="card-body bg-light">
+                    <form method="POST" id="song-form">
+                        {% csrf_token %}
+                        {% if not instance %}<input type="hidden" name="_method" value="PUT">{% endif %}
+
+                        <!-- Song Title Header -->
+                        <div class="mb-5 text-center" style="max-width: 500px; margin: 0 auto;">
+                            <label class="label-caps">Song Title</label>
+                            {{ form.name }}
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <!-- Patch Selection (OneToOne) -->
+                            <div class="col-md-8">
+                                <div class="p-3 rounded shadow-sm song-card h-100">
+                                    <label class="label-caps">Assigned Sound Patch</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">🎹</span>
+                                        {{ form.patch }}
+                                    </div>
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            <i class="bi bi-info-circle"></i> 
+                                            Only available patches are listed (One-to-One).
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tempo Section -->
+                            <div class="col-md-4">
+                                <div class="p-3 rounded shadow-sm song-card h-100 text-center">
+                                    <label class="label-caps">Global Tempo</label>
+                                    <div class="d-flex justify-content-center align-items-center gap-2">
+                                        {{ form.tempo }}
+                                        <span class="fw-bold text-muted small">BPM</span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <input type="range" class="form-range" min="40" max="250" 
+                                               value="{{ form.tempo.value|default:120 }}" 
+                                               oninput="this.previousElementSibling.firstElementChild.value = this.value">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notes/Performance Instructions -->
+                        <div class="mb-4">
+                            <div class="p-3 rounded shadow-sm song-card">
+                                <label class="label-caps">Performance Notes & Instructions</label>
+                                {{ form.notes }}
+                                <div class="mt-2 d-flex justify-content-between">
+                                    <small class="text-muted">Structure, key changes, or hardware cues.</small>
+                                    <small class="text-muted text-uppercase" id="char-count" style="font-size: 0.6rem;">Max 500 chars</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="text-center mt-5 border-top pt-4">
+                            <a href="{% url 'songs' %}" class="btn btn-outline-secondary px-4 me-2">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-5 fw-bold">
+                                {% if instance %}Update{% else %}Save{% endif %} Song
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Link the Tempo number input and the range slider for a better DAW feel
+    document.addEventListener('DOMContentLoaded', function() {
+        const tempoInput = document.querySelector('.tempo-input');
+        const tempoSlider = document.querySelector('.form-range');
+        
+        if(tempoInput && tempoSlider) {
+            tempoInput.addEventListener('input', (e) => {
+                tempoSlider.value = e.target.value;
+            });
+            
+            tempoSlider.addEventListener('input', (e) => {
+                tempoInput.value = e.target.value;
+            });
+        }
+
+        // Focus the Song Title on New Song forms for faster keyboard entry
+        {% if not instance %}
+        (function(){
+            const nameEl = document.getElementById('id_name');
+            if(nameEl){
+                try{
+                    nameEl.focus();
+                    // Put cursor at end for convenience
+                    const len = nameEl.value.length;
+                    nameEl.setSelectionRange(len, len);
+                }catch(e){ /* ignore on unsupported browsers */ }
+            }
+        })();
+        {% endif %}
+    });
+</script>
+{% endblock %}

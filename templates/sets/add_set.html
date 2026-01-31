@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .form-center { max-width: 720px; margin: 0 auto; }
+    .song-select { width: 100%; min-height: 140px; }
+    .small-muted { font-size: 0.75rem; color: #6c757d; }
+
+    /* Song picker styles */
+    #available-songs { display:block; gap:8px; overflow-y:auto; max-height:420px; padding:6px; border:1px solid rgba(0,0,0,0.06); background:#fff; border-radius:4px; }
+    .song-chip { display:block; width:100%; text-align:left; margin-bottom:6px; }
+    .selected-badge { font-size:0.9rem; }
+    /* Drag handle */
+    .drag-handle { cursor: grab; font-size: 1.0rem; text-align: center; }
+    tr.dragging { opacity: 0.55; }
+    /* Order cell (display-only) */
+    .song-order-cell { width: 80px; text-align: center; font-weight: 600; }
+
+</style>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3">
+                            <h4 class="mb-0 text-center">{% if instance %}Edit{% else %}New{% endif %} Set</h4>
+                        </div>
+
+                        <div class="card-body bg-light">
+                            <form method="POST" id="set-form">
+                                {% csrf_token %}
+                                {% if not instance %}<input type="hidden" name="_method" value="PUT">{% endif %}
+                                <input type="hidden" name="next" value="{{ next_url }}">
+
+                                <div class="form-center">
+                                    <!-- Name -->
+                                    <div class="mb-4 text-center">
+                                        <label class="form-label small fw-bold text-uppercase text-muted">Set Name</label>
+                                        {{ form.name }}
+                                    </div>
+
+                                    <!-- Location -->
+                                    <div class="mb-3 text-center">
+                                        <label class="form-label small text-muted">Location (optional)</label>
+                                        {{ form.location }}
+                                    </div>
+
+                                    <!-- Date -->
+                                    <div class="mb-3">
+                                        <label class="form-label small text-muted">Date</label>
+                                        {{ form.date }}
+                                    </div>
+
+                                    <!-- Description -->
+                                    <div class="mb-4">
+                                        <label class="form-label small text-muted">Description (optional)</label>
+                                        {{ form.description }}
+                                    </div>
+
+                                    <!-- Selected songs table (shows selected songs for this set) -->
+                                    <div id="selected-songs-table-container" class="mb-4">
+                                        <h6 class="small text-muted">Selected Songs</h6>
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width:40px"></th>
+                                                    <th style="width:80px">Order</th>
+                                                    <th>Song</th>
+                                                    <th>Notes</th>
+                                                    <th style="width:60px">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="selected-songs-tbody"></tbody>
+                                        </table> 
+                                    </div>
+
+                                    <!-- Footer Actions -->
+                                    <div class="mt-4 pt-3 border-top d-flex justify-content-center gap-3">
+                                        <a href="{% url 'sets' %}" class="btn btn-link text-muted text-decoration-none">Cancel</a>
+                                        <button type="submit" class="btn btn-primary px-4 shadow-sm">Save Set</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-body">
+                            <label class="form-label small text-muted">Search & Add Songs</label>
+
+                            <!-- Search box -->
+                            <div class="mb-2">
+                                <input type="text" id="song-search" class="form-control" placeholder="Search songs...">
+                            </div>
+
+                            <!-- Available songs (vertically scrollable) -->
+                            <div id="available-songs" class="mb-2" aria-label="Available songs">
+                                <!-- Filled by JS -->
+                            </div>
+
+                            <!-- Keep the form's select in the page but hidden so Django receives selected values -->
+                            <div style="display:none;">{{ form.songs }}</div>
+
+                            <div class="small-muted mt-1">Click a song to add it; click the 🗑️ on a selected song to remove it.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    const allSongs = {{ songs_json|safe }} || [];
+    const initialMeta = {{ songs_meta_json|safe }} || [];
+
+    const selectedIds = new Set();
+    const songMeta = {}; // id => { order, notes, name }
+
+    // Initialize from initialMeta
+    initialMeta.forEach(m => {
+        const id = Number(m.song_id || m['song_id']);
+        selectedIds.add(id);
+        songMeta[id] = { order: m.order || null, notes: m.notes || '', name: m.song__name || '' };
+    });
+
+    const availableEl = document.getElementById('available-songs');
+    const searchInput = document.getElementById('song-search');
+    const selectedTbody = document.getElementById('selected-songs-tbody');
+
+    function createChip(song){
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-light song-chip border-0';
+        btn.textContent = song.name;
+        btn.title = song.name;
+        btn.addEventListener('click', () => addSong(song.id));
+        return btn;
+    }
+
+    function renderAvailable(filter = ''){
+        if(!availableEl) return;
+        availableEl.innerHTML = '';
+        const q = filter.trim().toLowerCase();
+        const list = allSongs.filter(s => !selectedIds.has(s.id) && (!q || s.name.toLowerCase().includes(q)));
+        if(list.length === 0){
+            availableEl.innerHTML = '<div class="text-muted small">No songs match.</div>';
+            return;
+        }
+        list.forEach(s => availableEl.appendChild(createChip(s)));
+    }
+
+    function renderSelectedTable(){
+        if(!selectedTbody) return;
+        selectedTbody.innerHTML = '';
+
+        const items = Array.from(selectedIds).map(id => {
+            const s = allSongs.find(x => x.id === id) || { id: id, name: songMeta[id] && songMeta[id].name || 'Song ' + id };
+            const meta = songMeta[id] || { order: null, notes: '' };
+            return { id: id, name: s.name, order: meta.order, notes: meta.notes };
+        });
+
+        // Sort by order (nulls last)
+        items.sort((a,b) => {
+            if(a.order == null && b.order == null) return 0;
+            if(a.order == null) return 1;
+            if(b.order == null) return -1;
+            return a.order - b.order;
+        });
+
+        items.forEach(it => {
+            const tr = document.createElement('tr');
+            tr.dataset.id = it.id;
+            tr.draggable = true;
+            tr.innerHTML = `
+                <td class="drag-handle">☰</td>
+                <td class="song-order-cell" data-order="${it.order||''}">${it.order||''}</td>
+                <td>${it.name}</td>
+                <td><input type="text" class="form-control form-control-sm song-notes" value="${(it.notes||'').replace(/"/g,'&quot;')}"></td>
+                <td><button type="button" class="btn btn-sm btn-icon btn-trash remove-song-btn" title="Remove"><span style="font-size:1.1rem;">🗑️</span></button></td> 
+            `;
+            selectedTbody.appendChild(tr);
+        });
+
+        // After building, attach drag-and-drop behavior via delegation
+        attachDnDHandlers();
+    }
+
+    function attachDnDHandlers(){
+        // Attach dragstart/dragend to the currently rendered rows
+        selectedTbody.querySelectorAll('tr').forEach(tr => {
+            // Avoid adding duplicate listeners on the same DOM element
+            if(!tr._dndInited){
+                tr.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', tr.dataset.id);
+                    tr.classList.add('dragging');
+                });
+
+                tr.addEventListener('dragend', (e) => {
+                    tr.classList.remove('dragging');
+                    // Reindex orders after drop
+                    reindexFromDOM();
+                    renderSelectedTable();
+                });
+                tr._dndInited = true;
+            }
+        });
+
+        // Add dragover handler only once on the tbody to avoid duplication
+        if(!selectedTbody._dndInit){
+            selectedTbody.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const targetRow = e.target.closest('tr');
+                const dragging = selectedTbody.querySelector('.dragging');
+                if(!targetRow || !dragging || targetRow === dragging) return;
+                const rect = targetRow.getBoundingClientRect();
+                const offset = e.clientY - rect.top;
+                if(offset > rect.height / 2){
+                    targetRow.parentNode.insertBefore(dragging, targetRow.nextSibling);
+                } else {
+                    targetRow.parentNode.insertBefore(dragging, targetRow);
+                }
+            });
+            selectedTbody._dndInit = true;
+        }
+    }
+
+    function reindexFromDOM(){
+        const rows = Array.from(selectedTbody.querySelectorAll('tr'));
+        rows.forEach((r, idx) => {
+            const id = Number(r.dataset.id);
+            songMeta[id] = songMeta[id] || {};
+            songMeta[id].order = idx + 1;
+            const orderCell = r.querySelector('.song-order-cell');
+            if(orderCell){
+                orderCell.textContent = songMeta[id].order || '';
+                orderCell.dataset.order = songMeta[id].order || '';
+            }
+        });
+    }
+
+    function addSong(id){
+        id = Number(id);
+        if(!selectedIds.has(id)){
+            const orders = Object.values(songMeta).map(m => Number(m.order)).filter(n => !isNaN(n));
+            const maxOrder = orders.length ? Math.max(...orders) : 0;
+            songMeta[id] = songMeta[id] || { order: maxOrder + 1, notes: '', name: (allSongs.find(s => s.id === id) || {}).name };
+            selectedIds.add(id);
+        }
+        renderAvailable(searchInput.value);
+        renderSelectedTable();
+        // scroll selected table into view
+        const container = document.getElementById('selected-songs-table-container');
+        if(container) container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function removeSong(id){
+        id = Number(id);
+        selectedIds.delete(id);
+        delete songMeta[id];
+        renderAvailable(searchInput.value);
+        renderSelectedTable();
+    }
+
+    // Event delegation for actions and inline edits (supports reordering)
+    if(selectedTbody){
+        selectedTbody.addEventListener('click', (e) => {
+            const upBtn = e.target.closest('.move-up-btn');
+            const downBtn = e.target.closest('.move-down-btn');
+            const removeBtn = e.target.closest('.remove-song-btn');
+
+            if(upBtn){
+                const tr = upBtn.closest('tr');
+                const id = Number(tr.dataset.id);
+
+                // Find rows in current displayed order and swap order values with previous
+                const rows = Array.from(selectedTbody.querySelectorAll('tr'));
+                const ids = rows.map(r => Number(r.dataset.id));
+                const idx = ids.indexOf(id);
+                if(idx > 0){
+                    const prevId = ids[idx - 1];
+                    const a = songMeta[prevId] || {order: null};
+                    const b = songMeta[id] || {order: null};
+                    const tmp = a.order;
+                    a.order = b.order;
+                    b.order = tmp;
+                    songMeta[prevId] = a;
+                    songMeta[id] = b;
+                    renderSelectedTable();
+                }
+                return;
+            }
+
+            if(downBtn){
+                const tr = downBtn.closest('tr');
+                const id = Number(tr.dataset.id);
+                const rows = Array.from(selectedTbody.querySelectorAll('tr'));
+                const ids = rows.map(r => Number(r.dataset.id));
+                const idx = ids.indexOf(id);
+                if(idx > -1 && idx < ids.length - 1){
+                    const nextId = ids[idx + 1];
+                    const a = songMeta[nextId] || {order: null};
+                    const b = songMeta[id] || {order: null};
+                    const tmp = a.order;
+                    a.order = b.order;
+                    b.order = tmp;
+                    songMeta[nextId] = a;
+                    songMeta[id] = b;
+                    renderSelectedTable();
+                }
+                return;
+            }
+
+            if(removeBtn){
+                const tr = removeBtn.closest('tr');
+                removeSong(tr.dataset.id);
+            }
+        });
+
+        selectedTbody.addEventListener('input', (e) => {
+            const row = e.target.closest('tr'); if(!row) return;
+            const id = Number(row.dataset.id);
+            const notesEl = row.querySelector('.song-notes');
+            songMeta[id] = songMeta[id] || {};
+            if(notesEl) songMeta[id].notes = notesEl.value;
+            // Notes changed — no need to re-order table
+        });
+    }
+
+    if(searchInput){ searchInput.addEventListener('input', (e) => renderAvailable(e.target.value)); }
+
+    // Initial render
+    renderAvailable();
+    renderSelectedTable();
+
+    // Ensure values are submitted as JSON in hidden 'set_songs'
+    const form = document.getElementById('set-form');
+    if(form){
+        form.addEventListener('submit', () => {
+            const rows = selectedTbody ? Array.from(selectedTbody.querySelectorAll('tr')) : [];
+            const out = rows.map(tr => ({ id: Number(tr.dataset.id), order: (() => { const v = tr.querySelector('.song-order-cell'); return v && v.textContent.trim() ? parseInt(v.textContent.trim(), 10) : null })(), notes: tr.querySelector('.song-notes').value }));
+            form.querySelectorAll('input[name="set_songs"]').forEach(n => n.remove());
+            const hidden = document.createElement('input'); hidden.type = 'hidden'; hidden.name = 'set_songs'; hidden.value = JSON.stringify(out); form.appendChild(hidden);
+        });
+    }
+})();
+</script>
+
+{% endblock %}

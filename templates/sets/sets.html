@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .set-row { transition: all 0.2s ease; }
+    .set-row:hover { background-color: #f8f9fa; }
+
+    /* Consistent icon styling */
+    .btn-icon { opacity: 0.6; transition: opacity 0.2s; border: none; background: none; }
+    .btn-icon:hover { opacity: 1; }
+
+    /* Specific colors for action types */
+    .btn-trash { color: #dc3545; }
+    .btn-apply { color: #0d6efd; /* Bootstrap primary blue */ }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+            <h2 class="mb-0">My Sets</h2>
+            <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'sets_api_helper' %}" class="small text-muted text-decoration-none">API Helper</a>
+                {% if sets %}
+                    <a href="{% url 'add_set' %}" class="btn btn-primary btn-sm shadow-sm">
+                        + Add New Set
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <style>
+            /* Active-set star styling */
+            .set-star { font-size: 1.2rem; border: none; background: none; padding: 0; margin-right: 8px; }
+            .set-star.active { color: #0d6efd; }
+            .set-star.inactive { color: #6c757d; }
+        </style>
+
+        <div class="d-flex align-items-center mb-2 small text-uppercase text-muted" style="font-weight:700;">
+            <div style="width:110px; text-align:center;">Date</div>
+            <div class="flex-grow-1">Set</div>
+            <div style="width:90px; text-align:center;">Songs</div>
+            <div style="width:60px;text-align:right;">Actions</div>
+        </div>
+
+        <ul class="list-group shadow-sm">
+            {% for set in sets %}
+                <li class="list-group-item d-flex justify-content-between align-items-center patch-row py-3">
+
+                    <div class="d-flex align-items-center w-100">
+
+                        <!-- Date column (first) -->
+                        <div style="width:110px; text-align:center;">
+                            <div class="text-muted small">{{ set.date|date:"m/d/Y" }}</div>
+                        </div>
+
+                        <!-- Main details -->
+                        <div class="flex-grow-1 d-flex align-items-center gap-2">
+                            <!-- Activate Star -->
+                            <form action="{% url 'activate_set' set.pk %}" method="POST" class="m-0">
+                                {% csrf_token %}
+                                <button type="submit" class="set-star {% if set.active %}active{% else %}inactive{% endif %}" title="Mark set active">
+                                    {% if set.active %}★{% else %}☆{% endif %}
+                                </button>
+                            </form>
+
+                            <a href="{% url 'edit_set' set.pk %}" class="text-decoration-none fw-bold text-dark">
+                                {{ set.name }}
+                            </a>
+                            {% if set.location %}
+                                <span class="text-muted ms-3 small">· {{ set.location }}</span>
+                            {% endif %}
+
+                            {% if set.active %}
+                                <span class="badge rounded-pill bg-success px-2 ms-2" style="font-size:0.6rem;">ACTIVE</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Songs column -->
+                        <div style="width:90px; text-align:center;">
+                            <span class="badge bg-secondary">{{ set.songs.count }}</span>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="d-flex gap-3 align-items-center">
+                            <!-- Delete Form -->
+                            <form action="{% url 'edit_set' set.pk %}" method="POST" class="m-0">
+                                {% csrf_token %}
+                                <input type="hidden" name="_method" value="DELETE">
+                                <button type="submit" class="btn-icon btn-trash"
+                                        title="Delete Set"
+                                        onclick="return confirm('Permanently delete the set \'{{ set.name }}\'?');">
+                                    <span style="font-size: 1.2rem;">🗑️</span>
+                                </button>
+                            </form>
+                        </div>
+
+                    </div>
+
+                </li>
+            {% empty %}
+                <li class="list-group-item list-group-item-info text-center py-5 border-0 rounded">
+                    <p class="mb-3 text-muted">Your set library is empty.</p>
+                    <a href="{% url 'add_set' %}" class="btn btn-primary shadow-sm px-4">
+                        Create Your First Set
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock content %}

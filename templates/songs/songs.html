@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .song-row { transition: all 0.2s ease; }
+    .song-row:hover { background-color: #f8f9fa; }
+
+    /* Consistent icon styling */
+    .btn-icon { opacity: 0.6; transition: opacity 0.2s; border: none; background: none; }
+    .btn-icon:hover { opacity: 1; }
+
+    /* Specific colors for action types */
+    .btn-trash { color: #dc3545; }
+
+    .song-notes {
+        white-space: normal;
+        word-wrap: break-word;
+        transition: all 0.3s ease;
+    }
+
+    /* Limits text to exactly 2 lines, then adds an ellipsis (...) */
+    .song-notes.collapsed {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .badge-hover-effect {
+        transition: transform 0.15s ease-in-out;
+        display: inline-block;
+    }
+    .badge-hover-effect:hover {
+        transform: translateY(-1px); /* Slight lift on hover */
+    }
+    .badge-hover-effect:hover .badge {
+        background-color: #f0f7ff !important; /* Slight blue tint on hover */
+        border-color: #0d6efd !important;
+        box-shadow: 0 2px 4px rgba(13, 110, 253, 0.15);
+    }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-md-11">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+            <h2 class="mb-0">Bob Songs</h2>
+            {% if songs %}
+                <a href="{% url 'add_song' %}" class="btn btn-primary btn-sm shadow-sm">
+                    + Add New Song
+                </a>
+            {% endif %}
+        </div>
+
+       <div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="bg-light">
+                <tr>
+                    <th class="ps-4 border-0 small text-uppercase text-muted" style="width: 30%;">Song Title</th>
+                    <th class="border-0 small text-uppercase text-muted" style="width: 25%;">Assigned Patch</th>
+                    <th class="border-0 small text-uppercase text-muted text-center" style="width: 10%;">Tempo</th>
+                    <th class="border-0 small text-uppercase text-muted" style="width: 25%;">Notes</th>
+                    <th class="pe-4 border-0 small text-uppercase text-muted text-end" style="width: 10%;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for song in songs %}
+                <tr>
+                    <!-- Song Name -->
+                    <td class="ps-4">
+                        <a href="{% url 'edit_song' song.pk %}" class="text-decoration-none fw-bold text-dark">
+                            {{ song.name }}
+                        </a>
+                    </td>
+
+                    <!-- Patch Column inside your 'for song in songs' loop -->
+                    <td>
+                        {% if song.patch %}
+                            <a href="{% url 'edit_patch' song.patch.pk %}?next={{ request.path|urlencode }}"
+                               class="text-decoration-none badge-hover-effect"
+                               title="Edit Patch Settings">
+                                <span class="badge bg-white text-primary border border-primary-subtle fw-medium py-2 px-3">
+                                    🎹 {{ song.patch.name }}
+                                </span>
+                            </a>
+
+                        {% else %}
+                            <span class="text-muted small italic">No Patch Assigned</span>
+                        {% endif %}
+                    </td>
+
+
+                    <!-- Tempo -->
+                    <td class="text-center">
+                        <span class="fw-bold text-muted">{{ song.tempo }}</span>
+                    </td>
+
+                    <td style="width: 35%; min-width: 250px;">
+                        <div class="notes-container">
+                            <!-- The 'collapsed' class will limit text to 2 lines -->
+                            <div class="song-notes text-muted small lh-sm collapsed" id="notes-{{ song.pk }}">
+                                {{ song.notes|default:"--" }}
+                            </div>
+
+                            {% if song.notes|length > 80 %}
+                                <a href="javascript:void(0)"
+                                   class="text-primary fw-bold"
+                                   style="font-size: 0.7rem; text-decoration: none;"
+                                   onclick="toggleNotes('{{ song.pk }}', this)">
+                                    (more)
+                                </a>
+                            {% endif %}
+                        </div>
+                    </td>
+
+
+                    <!-- Actions -->
+                    <td class="pe-4 text-end">
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'edit_song' song.pk %}" class="btn-icon text-primary" title="Edit Song">
+                                <span style="font-size: 1.1rem;">✏️</span>
+                            </a>
+
+                            <form action="{% url 'edit_song' song.pk %}" method="POST" class="m-0 d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="_method" value="DELETE">
+                                <button type="submit" class="btn-icon btn-trash"
+                                        title="Delete Song"
+                                        onclick="return confirm('Permanently delete \'{{ song.name }}\'?');">
+                                    <span style="font-size: 1.1rem;">🗑️</span>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-5">
+                        <p class="mb-3 text-muted">Your song library is empty.</p>
+                        <a href="{% url 'add_song' %}" class="btn btn-primary shadow-sm px-4">
+                            Create Your First Song
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+    </div>
+</div>
+
+<script>
+function toggleNotes(songId, linkElement) {
+    const notesDiv = document.getElementById('notes-' + songId);
+
+    if (notesDiv.classList.contains('collapsed')) {
+        notesDiv.classList.remove('collapsed');
+        linkElement.innerText = '(less)';
+    } else {
+        notesDiv.classList.add('collapsed');
+        linkElement.innerText = '(more)';
+    }
+}
+</script>
+
+{% endblock content %}

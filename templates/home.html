@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body p-5">
+                <h1 class="display-4 mb-4">BOB Synth</h1>
+                <p class="lead mb-4">
+                    A comprehensive patch and song management system for FluidSynth-based synthesizers.
+                </p>
+                
+                <hr class="my-4">
+                
+                <div class="row g-4 mt-3">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h3 class="h5">🎹 Patches</h3>
+                            <p class="text-muted small">Create and manage multi-voice synthesizer patches with SoundFont presets</p>
+                            <a href="{% url 'patches' %}" class="btn btn-outline-primary btn-sm">View Patches</a>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h3 class="h5">🎵 Songs</h3>
+                            <p class="text-muted small">Organize songs with patch assignments, tempo, and performance notes</p>
+                            <a href="{% url 'songs' %}" class="btn btn-outline-primary btn-sm">View Songs</a>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h3 class="h5">📋 Sets</h3>
+                            <p class="text-muted small">Build performance set lists with song ordering and navigation</p>
+                            <a href="{% url 'sets' %}" class="btn btn-outline-primary btn-sm">View Sets</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-5 text-center">
+                    <p class="text-muted small mb-0">Use the navigation above to get started</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOB Patch Setup</title>
+    <!-- Local Bootstrap CSS -->
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">BOB Synth</a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="{% url 'sets' %}">Sets</a>
+                <a class="nav-link" href="{% url 'songs' %}">Songs</a>
+                <a class="nav-link" href="{% url 'patches' %}">Patches</a>
+            </div>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="container mt-3">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="this.parentElement.remove();"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+
+        {% block content %}
+        <!-- Child content goes here -->
+        {% endblock content %}
+    </div>
+
+    <!-- Local Bootstrap JS -->
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>
