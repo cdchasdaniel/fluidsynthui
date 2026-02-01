@@ -67,7 +67,7 @@ def get_presets_from_file(sf_path):
 def load_soundfont_presets(synth_manager):
     all_soundfont_presets = {}
     SF_DIR = os.path.join(settings.BASE_DIR, settings.SOUNDFONT_DIR)
-    sf_files = os.listdir(SF_DIR)
+    sf_files = sorted(os.listdir(SF_DIR))
 
     # Print each name
     for sf_file in sf_files:
