@@ -55,6 +55,7 @@ class FluidMidiManager:
         if patch_id:
             self.active_patch_id = patch_id
         self.apply_reverb(reverb_settings)
+        print("DEBUG: Clearing router...")
         self.fs.router_clear()
         for voice in voices_data:
             channel = voice["channel"]-1
@@ -62,11 +63,13 @@ class FluidMidiManager:
             preset = voice["preset"].split(":")
             bank = int(preset[0])
             num = int(preset[1])
+            print(f"DEBUG: program_select(channel={channel}, sfid={sfid}, bank={bank}, num={num})")
             self.fs.program_select(channel, sfid, bank, num)
             min = voice["low_note"]
             max = voice["high_note"]
             volume = int(voice["volume"])
             transpose = int(voice["transpose"])
+            print(f"DEBUG: Setting up routing for channel {channel}: min={min}, max={max}, vol={volume}, transpose={transpose}")
             self.send_all_notes_to_channel_0(channel, min, max, volume, transpose)
             if voice["sustain"]:
                 self.send_sustain_cc_to_channel_0(channel)
@@ -80,11 +83,16 @@ class FluidMidiManager:
                            )
 
     def send_all_notes_to_channel_0(self, channel, min, max, volume, transpose):
-        self.fs.router_begin("note")
-        self.fs.router_chan(0, 0, 0, channel)
-        self.fs.router_par1(note_to_midi(min),note_to_midi(max), 1.0, transpose)
-        self.fs.router_par2(0, 127, 0.0, volume)
-        self.fs.router_end()
+        r1 = self.fs.router_begin("note")
+        print(f"  router_begin('note') returned: {r1}")
+        r2 = self.fs.router_chan(0, 0, 0, channel)
+        print(f"  router_chan(0, 0, 0, {channel}) returned: {r2}")
+        r3 = self.fs.router_par1(note_to_midi(min), note_to_midi(max), 1.0, transpose)
+        print(f"  router_par1 returned: {r3}")
+        r4 = self.fs.router_par2(0, 127, 0.0, volume)
+        print(f"  router_par2 returned: {r4}")
+        r5 = self.fs.router_end()
+        print(f"  router_end() returned: {r5}")
 
     def send_sustain_cc_to_channel_0(self, channel):
         self.fs.router_begin("cc")
