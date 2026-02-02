@@ -55,8 +55,8 @@ class FluidMidiManager:
         if patch_id:
             self.active_patch_id = patch_id
         self.apply_reverb(reverb_settings)
-        print("DEBUG: Clearing router...")
-        self.fs.router_clear()
+        #print("DEBUG: Clearing router...")
+        #self.fs.router_clear()
         for voice in voices_data:
             channel = voice["channel"]-1
             sfid = self.all_soundfont_presets[voice["file_name"]]["sfid"]
