@@ -51,7 +51,23 @@ class FluidMidiManager:
         self.active_patch_id = None
         atexit.register(self.cleanup)
 
+
     def apply_patch(self, voices_data, patch_id, reverb_settings):
+        if patch_id:
+            self.active_patch_id = patch_id
+        self.apply_reverb(reverb_settings)
+        
+        for voice in voices_data:
+            channel = voice["channel"] 
+            sfid = self.all_soundfont_presets[voice["file_name"]]["sfid"]
+            preset = voice["preset"].split(":")
+            bank = int(preset[0])
+            num = int(preset[1])
+            print(f"DEBUG: program_select(channel={channel}, sfid={sfid}, bank={bank}, num={num})")
+            self.fs.program_select(channel, sfid, bank, num)
+
+
+    def apply_patch_hold(self, voices_data, patch_id, reverb_settings):
         if patch_id:
             self.active_patch_id = patch_id
         self.apply_reverb(reverb_settings)
