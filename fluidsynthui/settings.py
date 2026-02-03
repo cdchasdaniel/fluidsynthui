@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -136,3 +137,32 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 FLUID_SYNTH = None
 SOUNDFONT_DIR = 'sf'
+
+
+class IgnoreActiveSongPoll(logging.Filter):
+    def filter(self, record):
+        return '/sets/active/song/current/' not in record.getMessage()
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'ignore_active_song_poll': {
+            '()': IgnoreActiveSongPoll,
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'filters': ['ignore_active_song_poll'],
+        },
+    },
+    'loggers': {
+        'django.server': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

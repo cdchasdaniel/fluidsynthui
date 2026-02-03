@@ -38,11 +38,7 @@ urlpatterns = [
     path('sets/add/', sets_view.add_set, name='add_set'),
     path('sets/edit/<int:pk>/', sets_view.add_set, name='edit_set'),
     path('sets/activate/<int:pk>/', sets_view.activate_set, name='activate_set'),
-    path('sets/active/song/<int:song_pk>/', sets_view.active_set_song_info, name='active_set_song_info'),
-    path('sets/active/song/<int:song_pk>/prev/', sets_view.active_set_prev_song, name='active_set_prev_song'),
-    path('sets/active/song/<int:song_pk>/next/', sets_view.active_set_next_song, name='active_set_next_song'),
-    path('sets/active/songs/', sets_view.active_set_songs, name='active_set_songs'),
-    path('sets/api/', sets_view.api_helper, name='sets_api_helper'),
+    path('sets/active/song/current/', sets_view.active_set_current_song, name='active_set_current_song'),
     path('sets/active/song/next/activate/', sets_view.active_set_activate_next, name='active_set_activate_next'),
     path('sets/active/song/prev/activate/', sets_view.active_set_activate_prev, name='active_set_activate_prev'),
 

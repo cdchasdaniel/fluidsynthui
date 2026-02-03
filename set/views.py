@@ -1,16 +1,27 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
+from fluidsynthui.settings import FLUID_SYNTH
 from set.forms import SetForm
 from .models import Set
 from songs.models import Song
 import json
-
+# --- Active-set JSON services ---
+from django.http import JsonResponse
+from django.db.models import F
+from django.db import transaction
+from django.conf import settings
 
 def sets(request):
     # Order sets by performance date descending (newest first)
     sets = Set.objects.all().order_by('-date')
+    active = _get_active_set()
+    active_song = None
+    if active:
+        from .models import SetSong
+        active_song = SetSong.objects.filter(set=active, active=True).select_related('song').first()
     return render(request, 'sets/sets.html', {
         'sets': sets,
+        'active_song': active_song,
     })
 
 
@@ -22,14 +33,16 @@ def activate_set(request, pk):
     instance = get_object_or_404(Set, pk=pk)
     instance.active = True
     instance.save()
+    ordered = _ordered_setsongs(instance)
+    if ordered:
+        with transaction.atomic():
+            from .models import SetSong
+            SetSong.objects.filter(set=instance).update(active=False)
+            SetSong.objects.filter(pk=ordered[0].pk).update(active=True)
+        _apply_song_patch_if_any(ordered[0].song)
     messages.success(request, f"Set '{instance.name}' marked active.")
     return redirect('sets')
 
-
-# --- Active-set JSON services ---
-from django.http import JsonResponse
-from django.db.models import F
-from django.db import transaction
 
 
 def _ensure_active_setsong(active):
@@ -41,6 +54,51 @@ def _ensure_active_setsong(active):
             with transaction.atomic():
                 SetSong.objects.filter(set=active).update(active=False)
                 SetSong.objects.filter(pk=ordered[0].pk).update(active=True)
+            _apply_song_patch_if_any(ordered[0].song)
+
+
+def _apply_song_patch_if_any(song):
+    """Apply the patch associated with a Song, if one exists."""
+    if not FLUID_SYNTH:
+        print("No synth manager available")
+        return
+
+    patch = getattr(song, 'patch', None)
+    if not patch:
+        default_voice = {
+            'channel': 1,
+            'file_name': 'defaultGM.sf2',
+            'preset': '000:000',
+            'sustain': False,
+            'volume': 100,
+            'transpose': 0,
+            'low_note': 'C0',
+            'high_note': 'G10',
+        }
+        FLUID_SYNTH.apply_patch(
+            [default_voice],
+            None,
+            {
+                'room_size': 0.5,
+                'damping': 0.5,
+                'width': 0.5,
+                'level': 0.9,
+            },
+        )
+        return
+
+    voices_data = list(patch.voices.all().values(
+        'channel', 'file_name', 'preset', 'sustain',
+        'volume', 'transpose', 'low_note', 'high_note'
+    ))
+    reverb_settings = {
+        'room_size': patch.reverb_room_size,
+        'damping': patch.reverb_damping,
+        'width': patch.reverb_width,
+        'level': patch.reverb_level,
+    }
+    print(f"Applying patch for song {song.name}")
+    FLUID_SYNTH.apply_patch(voices_data, patch.id, reverb_settings)
 
 
 def _get_active_set():
@@ -60,95 +118,15 @@ def _get_active_set():
     return active
 
 
-def active_set_song_info(request, song_pk):
-    """Return JSON with song info plus per-set metadata for the active set."""
-    active = _get_active_set()
-    if not active:
-        return JsonResponse({'error': 'No active set'}, status=404)
-
-    song = get_object_or_404(Song, pk=song_pk)
-
-    # Get set-specific metadata if present
-    try:
-        from .models import SetSong
-        ss = SetSong.objects.filter(set=active, song=song).select_related('song').first()
-    except Exception:
-        ss = None
-
-    data = {
-        'song': {
-            'id': song.pk,
-            'name': song.name,
-            'notes': song.notes,
-            'tempo': song.tempo,
-            'patch': {
-                'id': song.patch.pk,
-                'name': song.patch.name
-            } if getattr(song, 'patch', None) else None,
-        },
-        'set': {
-            'id': active.pk,
-            'name': active.name,
-            'date': active.date.isoformat() if active.date else None
-        },
-        'set_meta': {
-            'order': ss.order if ss else None,
-            'notes': ss.notes if ss else None,
-        }
-    }
-
-    return JsonResponse(data)
-
-
 def _ordered_setsongs(active):
     """Helper returning SetSong queryset ordered by order (nulls last)."""
     from .models import SetSong
     return list(SetSong.objects.filter(set=active).select_related('song').order_by(F('order').asc(nulls_last=True), 'song__name'))
 
-
-def active_set_prev_song(request, song_pk):
-    """Return name and pk of the previous song in the active set (or null)."""
-    active = _get_active_set()
-    if not active:
-        return JsonResponse({'error': 'No active set'}, status=404)
-
-    ordered = _ordered_setsongs(active)
-    idx = next((i for i, ss in enumerate(ordered) if ss.song_id == song_pk), None)
-    if idx is None:
-        return JsonResponse({'error': 'Song not in active set'}, status=404)
-
-    prev_item = ordered[idx - 1] if idx > 0 else None
-    if not prev_item:
-        return JsonResponse({'song': None})
-
-    return JsonResponse({'song': {'id': prev_item.song.pk, 'name': prev_item.song.name}})
-
-
-def active_set_next_song(request, song_pk):
-    """Return name and pk of the next song in the active set (or null)."""
-    active = _get_active_set()
-    if not active:
-        return JsonResponse({'error': 'No active set'}, status=404)
-
-    ordered = _ordered_setsongs(active)
-    idx = next((i for i, ss in enumerate(ordered) if ss.song_id == song_pk), None)
-    if idx is None:
-        return JsonResponse({'error': 'Song not in active set'}, status=404)
-
-    next_item = ordered[idx + 1] if idx < len(ordered) - 1 else None
-    if not next_item:
-        return JsonResponse({'song': None})
-
-    return JsonResponse({'song': {'id': next_item.song.pk, 'name': next_item.song.name}})
-
-
-from django.db import transaction
-
-
 def active_set_activate_next(request):
-    """Mark the next song in the active set as active (POST only)."""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST required'}, status=405)
+    """Mark the next song in the active set as active (POST or GET)."""
+    if request.method not in ['POST', 'GET']:
+        return JsonResponse({'error': 'POST or GET required'}, status=405)
 
     active = _get_active_set()
     if not active:
@@ -166,7 +144,7 @@ def active_set_activate_next(request):
         target_idx = current_idx + 1
 
     if target_idx >= len(ordered):
-        return JsonResponse({'song': None})
+        return JsonResponse({'song': None, 'current_song_name': None})
 
     target = ordered[target_idx]
     with transaction.atomic():
@@ -175,13 +153,18 @@ def active_set_activate_next(request):
         SetSong.objects.filter(set=active).update(active=False)
         SetSong.objects.filter(pk=target.pk).update(active=True)
 
-    return JsonResponse({'song': {'id': target.song.pk, 'name': target.song.name}})
+    _apply_song_patch_if_any(target.song)
+
+    return JsonResponse({
+        'song': {'id': target.song.pk, 'name': target.song.name},
+        'current_song_name': target.song.name,
+    })
 
 
 def active_set_activate_prev(request):
-    """Mark the previous song in the active set as active (POST only)."""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST required'}, status=405)
+    """Mark the previous song in the active set as active (POST or GET)."""
+    if request.method not in ['POST', 'GET']:
+        return JsonResponse({'error': 'POST or GET required'}, status=405)
 
     active = _get_active_set()
     if not active:
@@ -198,7 +181,7 @@ def active_set_activate_prev(request):
         target_idx = current_idx - 1
 
     if target_idx < 0:
-        return JsonResponse({'song': None})
+        return JsonResponse({'song': None, 'current_song_name': None})
 
     target = ordered[target_idx]
     with transaction.atomic():
@@ -206,29 +189,27 @@ def active_set_activate_prev(request):
         SetSong.objects.filter(set=active).update(active=False)
         SetSong.objects.filter(pk=target.pk).update(active=True)
 
-    return JsonResponse({'song': {'id': target.song.pk, 'name': target.song.name}})
+    _apply_song_patch_if_any(target.song)
+
+    return JsonResponse({
+        'song': {'id': target.song.pk, 'name': target.song.name},
+        'current_song_name': target.song.name,
+    })
 
 
-def active_set_songs(request):
-    """Return the ordered list of songs (id, name, order, active) for the active set."""
-    active = _get_active_set()
+def active_set_current_song(request):
+    """Return the currently active song for the active set (or null)."""
+    active = Set.objects.filter(active=True).first()
     if not active:
         return JsonResponse({'error': 'No active set'}, status=404)
 
-    # Get fresh queryset to ensure active status is current
-    ordered = _ordered_setsongs(active)
-    
-    songs = [
-        {'id': ss.song.pk, 'name': ss.song.name, 'order': ss.order, 'active': ss.active}
-        for ss in ordered
-    ]
+    from .models import SetSong
+    ss = SetSong.objects.filter(set=active, active=True).select_related('song').first()
+    if not ss:
+        return JsonResponse({'song': None})
+    json = {'current_song_name': ss.song.name}
+    return JsonResponse(json)
 
-    return JsonResponse({'songs': songs})
-
-
-def api_helper(request):
-    """Render a small helper page so users can call the JSON services from a browser."""
-    return render(request, 'sets/api_helper.html')
 
 def add_set(request, pk=None):
     method = request.POST.get('_method', request.method).upper()

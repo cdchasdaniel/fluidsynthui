@@ -6,7 +6,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from fluidsynthui import settings
 from .models import Patch
 from .forms import PatchForm, VoiceFormSet
-from patches.synth.synth_manager import note_to_midi
+from .utils import note_to_midi
 import re
 from .utils import pull_out_preset
 

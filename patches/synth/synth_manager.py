@@ -2,42 +2,10 @@ import atexit
 import logging
 import os
 from django.conf import settings
-from . import init_midi_device, cleanup_midi_device, set_channel_preset, route_notes_to_channel, route_sustain_to_channel, set_reverb, get_soundfont_by_name, clear_router 
+from . import init_midi_device, cleanup_midi_device, set_channel_preset, route_notes_to_channel, route_sustain_to_channel, set_reverb, get_soundfont_by_name, clear_router
+from ..utils import note_to_midi
 
 logger = logging.getLogger(__name__)
-
-
-def note_to_midi(note_str):
-    """
-    Converts simple notation like 'C5' or 'F#2' to MIDI integers.
-    Convention: C0 = 0, C5 = 60.
-    """
-    notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-    # Map 'b' (flats) to '#' (sharps) for consistency
-    flats = {'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#'}
-
-    try:
-        # Standardize string (e.g., 'bb3' -> 'Bb3')
-        note_str = note_str.capitalize()
-
-        # Identify note name vs octave number
-        if note_str[1] in ['#', 'b']:
-            name = note_str[:2]
-            octave = int(note_str[2:])
-        else:
-            name = note_str[:1]
-            octave = int(note_str[1:])
-
-        # Handle flats
-        name = flats.get(name, name)
-
-        # Calculation: Octave * 12 + note index
-        midi_num = (octave * 12) + notes.index(name)
-        return max(0, min(127, midi_num))  # Keep within MIDI 0-127
-    except (ValueError, IndexError):
-        return 0  # Fallback
-
-
 
 
 class FluidMidiManager:
@@ -45,6 +13,7 @@ class FluidMidiManager:
         # Initialize Synth with soundfont directory
         soundfont_path = os.path.join(settings.BASE_DIR, 'sf')
         self.fs = init_midi_device(soundfont_path.encode('utf-8'))
+        set_channel_preset(0, b'defaultGM.sf2', b"000:000")
         self.active_patch_id = None
         atexit.register(self.cleanup)
 

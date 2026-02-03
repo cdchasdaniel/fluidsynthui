@@ -15,11 +15,10 @@
 </style>
 
 <div class="row justify-content-center">
-    <div class="col-md-8">
+    <div class="col-lg-10">
         <div class="d-flex justify-content-between align-items-end mb-4">
             <h2 class="mb-0">Set List</h2>
             <div class="d-flex align-items-center gap-2">
-                <a href="{% url 'sets_api_helper' %}" class="small text-muted text-decoration-none">API Helper</a>
                 {% if sets %}
                     <a href="{% url 'add_set' %}" class="btn btn-primary btn-sm shadow-sm">
                         + Add New Set
@@ -72,6 +71,11 @@
 
                             {% if set.active %}
                                 <span class="badge rounded-pill bg-success px-2 ms-2" style="font-size:0.6rem;">ACTIVE</span>
+                                <span id="active-song-name" class="text-muted ms-2 small" data-has-active="1">
+                                    {% if active_song and active_song.song %}
+                                        · Active song: {{ active_song.song.name }}
+                                    {% endif %}
+                                </span>
                             {% endif %}
                         </div>
 
@@ -108,4 +112,31 @@
         </ul>
     </div>
 </div>
+<script>
+    (function() {
+        const label = document.getElementById('active-song-name');
+        if (!label || label.dataset.hasActive !== '1') {
+            return;
+        }
+
+        const endpoint = '/sets/active/song/current/';
+
+        async function refreshActiveSong() {
+            try {
+                const res = await fetch(endpoint, { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const name = (data && data.current_song_name) || (data && data.song && data.song.name) || null;
+                if (name) {
+                    label.textContent = `· Active song: ${name}`;
+                }
+            } catch (err) {
+                // Ignore transient errors
+            }
+        }
+
+        refreshActiveSong();
+        setInterval(refreshActiveSong, 5000);
+    })();
+</script>
 {% endblock content %}

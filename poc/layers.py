@@ -16,7 +16,7 @@ fs.program_select(1, sfid, 0, 48)
 fs.router_begin("note")
 # channel 1 note events get routed to channel 0
 fs.router_chan(0,0,0,1)
-fs.router_par2(0,127,.33,0)
+fs.router_par2(0,127,1.0,0)
 fs.router_end()
 
 
