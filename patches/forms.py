@@ -5,7 +5,7 @@ from pathlib import Path
 from django import forms
 from django.forms import inlineformset_factory
 
-from bob import settings
+from fluidsynthui import settings
 from .models import Patch, Voice
 
 

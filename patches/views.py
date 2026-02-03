@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from bob import settings
+from fluidsynthui import settings
 from .models import Patch
 from .forms import PatchForm, VoiceFormSet
 from patches.synth.synth_manager import note_to_midi

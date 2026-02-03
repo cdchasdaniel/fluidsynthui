@@ -1,5 +1,5 @@
 from django.apps import AppConfig
-from bob import settings
+from fluidsynthui import settings
 from patches.synth.synth_manager import FluidMidiManager
 
 

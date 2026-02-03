@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 
-from bob import settings
+from fluidsynthui import settings
 from songs.forms import SongForm
 from songs.models import Song
 from patches.models import Patch

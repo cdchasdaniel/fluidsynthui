@@ -1,5 +1,5 @@
 """
-URL configuration for bob project.
+URL configuration for fluidsynthui project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/5.2/topics/http/urls/
@@ -19,11 +19,11 @@ from django.urls import path
 from patches import views as patches_view
 from songs import views as songs_view
 from set import views as sets_view
-from bob import views as bob_views
+from fluidsynthui import views as fluidsynthui_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', bob_views.home, name='home'),
+    path('', fluidsynthui_views.home, name='home'),
     path('patches/', patches_view.home, name='patches'),
     path('patch/add/', patches_view.add_patch, name='add_patch'),
     path('patch/edit/<int:pk>/', patches_view.add_patch, name='edit_patch'),
