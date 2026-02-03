@@ -35,3 +35,13 @@ config/*.yaml
 
 #soundfont files too large to track
 *.sf2
+
+# C/C++ build artifacts
+*.o
+*.dylib
+*.so
+*.a
+*.exe
+*.out
+cfluid/libcfluid.dylib
+cfluid/*.o
