@@ -1,7 +1,8 @@
 import atexit
 import logging
-import fluidsynth
-from patches.synth.soundfont import load_soundfont_presets
+import os
+from django.conf import settings
+from . import init_midi_device, cleanup_midi_device, set_channel_preset, route_notes_to_channel, route_sustain_to_channel, set_reverb, get_soundfont_by_name, clear_router 
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +42,9 @@ def note_to_midi(note_str):
 
 class FluidMidiManager:
     def __init__(self):
-        # Initialize Synth
-        self.fs = fluidsynth.Synth()
-        self.fs.setting('midi.autoconnect', 1)
-        self.fs.start()
-        self.all_soundfont_presets = load_soundfont_presets(self)
-        sfid = self.all_soundfont_presets["defaultGM.sf2"]["sfid"]
-        self.fs.program_select(0, sfid, 0, 1)
+        # Initialize Synth with soundfont directory
+        soundfont_path = os.path.join(settings.BASE_DIR, 'sf')
+        self.fs = init_midi_device(soundfont_path.encode('utf-8'))
         self.active_patch_id = None
         atexit.register(self.cleanup)
 
@@ -55,70 +52,59 @@ class FluidMidiManager:
     def apply_patch(self, voices_data, patch_id, reverb_settings):
         if patch_id:
             self.active_patch_id = patch_id
+        clear_router()
         self.apply_reverb(reverb_settings)
         
         for voice in voices_data:
-            channel = voice["channel"] 
-            sfid = self.all_soundfont_presets[voice["file_name"]]["sfid"]
-            preset = voice["preset"].split(":")
-            bank = int(preset[0])
-            num = int(preset[1])
-            print(f"DEBUG: program_select(channel={channel}, sfid={sfid}, bank={bank}, num={num})")
-            self.fs.program_select(channel, sfid, bank, num)
-
-
-    def apply_patch_hold(self, voices_data, patch_id, reverb_settings):
-        if patch_id:
-            self.active_patch_id = patch_id
-        self.apply_reverb(reverb_settings)
-        #print("DEBUG: Clearing router...")
-        #self.fs.router_clear()
-        for voice in voices_data:
-            channel = voice["channel"]-1
-            sfid = self.all_soundfont_presets[voice["file_name"]]["sfid"]
-            preset = voice["preset"].split(":")
-            bank = int(preset[0])
-            num = int(preset[1])
-            print(f"DEBUG: program_select(channel={channel}, sfid={sfid}, bank={bank}, num={num})")
-            self.fs.program_select(channel, sfid, bank, num)
+            channel = voice["channel"] - 1
+            print(f"DEBUG: set_channel_preset(channel={channel}, file={voice['file_name']}, preset={voice['preset']})")
+            set_channel_preset(channel, voice["file_name"].encode('utf-8'), voice["preset"].encode('utf-8'))
             min = voice["low_note"]
             max = voice["high_note"]
             volume = int(voice["volume"])
             transpose = int(voice["transpose"])
-            print(f"DEBUG: Setting up routing for channel {channel}: min={min}, max={max}, vol={volume}, transpose={transpose}")
-            self.send_all_notes_to_channel_0(channel, min, max, volume, transpose)
+            route_notes_to_channel(channel, note_to_midi(min), note_to_midi(max), volume, transpose)
             if voice["sustain"]:
-                self.send_sustain_cc_to_channel_0(channel)
+                route_sustain_to_channel(channel)
+
 
     def apply_reverb(self, reverb_settings):
         print(reverb_settings)
-        self.fs.set_reverb(reverb_settings["room_size"],
-                           reverb_settings["damping"],
-                           reverb_settings["width"],
-                           reverb_settings["level"]
-                           )
+        set_reverb(reverb_settings["room_size"],
+                   reverb_settings["damping"],
+                   reverb_settings["width"],
+                   reverb_settings["level"]
+                    )
 
-    def send_all_notes_to_channel_0(self, channel, min, max, volume, transpose):
-        r1 = self.fs.router_begin("note")
-        print(f"  router_begin('note') returned: {r1}")
-        r2 = self.fs.router_chan(0, 0, 0, channel)
-        print(f"  router_chan(0, 0, 0, {channel}) returned: {r2}")
-        r3 = self.fs.router_par1(note_to_midi(min), note_to_midi(max), 1.0, transpose)
-        print(f"  router_par1 returned: {r3}")
-        r4 = self.fs.router_par2(0, 127, 0.0, volume)
-        print(f"  router_par2 returned: {r4}")
-        r5 = self.fs.router_end()
-        print(f"  router_end() returned: {r5}")
-
-    def send_sustain_cc_to_channel_0(self, channel):
-        self.fs.router_begin("cc")
-        self.fs.router_par1(64, 64, 1.0, 0)
-        self.fs.router_chan(0, 0, 0, channel)
-        self.fs.router_end()
+    def get_presets_for_file(self, filename):
+        """
+        Returns presets for a given soundfont filename as a list of dictionaries.
+        Each dict contains: {'bank': int, 'num': int, 'name': str}
+        """
+        if not filename:
+            return []
+        
+        # Call the C function to get soundfont by name
+        soundfont = get_soundfont_by_name(filename.encode('utf-8'))
+        if not soundfont:
+            return []
+        
+        # Convert C presets array to Python list of dicts
+        presets = []
+        for i in range(soundfont.contents.preset_count):
+            preset = soundfont.contents.presets[i]
+            presets.append({
+                'bank': preset.bank,
+                'num': preset.num,
+                'name': preset.name.decode('utf-8')
+            })
+        
+        return presets
 
     def cleanup(self):
         print('\nCleaning Up Things....')
-        if hasattr(self, 'fs'): self.fs.delete()
+        cleanup_midi_device()
+
 
 
 

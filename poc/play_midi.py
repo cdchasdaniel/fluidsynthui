@@ -43,6 +43,11 @@ route_sustain_to_channel = lib.route_sustain_to_channel
 route_sustain_to_channel.argtypes = [ctypes.c_int]
 route_sustain_to_channel.restype = ctypes.c_int
 
+# int set_reverb(double room_size, double damping, double width, double level);
+set_reverb = lib.set_reverb
+set_reverb.argtypes = [ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_double]
+set_reverb.restype = ctypes.c_int
+
 def main():
     """Start the MIDI device listener"""
     print("Starting MIDI device listener...")
@@ -54,6 +59,13 @@ def main():
         return 1
     
     print("MIDI device initialized.")
+    
+    # Apply reverb for a richer sound
+    print("Applying reverb...")
+    result = set_reverb(1.0, 0.5, 0.9, 0.9)  # room_size, damping, width, level
+    if result != 0:
+        print("Failed to set reverb")
+        return 1
     
     # Set up layered sounds: Piano on channel 1, Strings on channel 2
     print("Setting up piano on channel 1...")

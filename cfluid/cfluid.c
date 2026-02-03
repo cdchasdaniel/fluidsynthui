@@ -25,6 +25,22 @@ static int g_sfont_count = 0;
 
 int init_midi_device(const char *soundfont_path)
 {
+    char sf_dir[512];
+    char fallback_path[512];
+    
+    /* Use provided soundfont path or default to ../sf */
+    if(soundfont_path == NULL || soundfont_path[0] == '\0')
+    {
+        strncpy(sf_dir, "../sf", sizeof(sf_dir) - 1);
+        strncpy(fallback_path, "../sf/defaultGM.sf2", sizeof(fallback_path) - 1);
+    }
+    else
+    {
+        strncpy(sf_dir, soundfont_path, sizeof(sf_dir) - 1);
+        snprintf(fallback_path, sizeof(fallback_path), "%s/defaultGM.sf2", soundfont_path);
+    }
+    sf_dir[sizeof(sf_dir) - 1] = '\0';
+    fallback_path[sizeof(fallback_path) - 1] = '\0';
     
     /* Create the settings. */
     g_settings = new_fluid_settings();
@@ -45,12 +61,12 @@ int init_midi_device(const char *soundfont_path)
         goto err;
     }
  
-    /* Load all available soundfonts from the sf directory */
-    g_soundfonts = load_soundfonts(g_synth, &g_sfont_count);
+    /* Load all available soundfonts from the specified directory */
+    g_soundfonts = load_soundfonts(g_synth, sf_dir, &g_sfont_count);
     if(g_soundfonts == NULL || g_sfont_count == 0)
     {
-        printf("No soundfonts found. Trying default fallback...\n");
-        g_sfont_id = fluid_synth_sfload(g_synth, "../sf/defaultGM.sf2", 1);
+        printf("No soundfonts found in %s. Trying default fallback...\n", sf_dir);
+        g_sfont_id = fluid_synth_sfload(g_synth, fallback_path, 1);
     }
     else
     {
@@ -219,7 +235,7 @@ int route_notes_to_channel(int channel, int min_note, int max_note, int volume, 
     fluid_midi_router_rule_set_param1(rule, min_note, max_note, 1.0, transpose);
     
     /* Set velocity range with volume offset */
-    fluid_midi_router_rule_set_param2(rule, 0, 127, 1.0, volume);
+    fluid_midi_router_rule_set_param2(rule, 0, 127, 0.0, volume);
     
     /* Add the rule to the router */
     if(fluid_midi_router_add_rule(g_router, rule, FLUID_MIDI_ROUTER_RULE_NOTE) != FLUID_OK)
@@ -232,10 +248,25 @@ int route_notes_to_channel(int channel, int min_note, int max_note, int volume, 
     printf("Routed notes [%d-%d] to channel %d (transpose: %d, volume: %d)\n",
            min_note, max_note, channel, transpose, volume);
     
+    /* Also route volume control for this channel */
+    route_volume_to_channel(channel);
+    
     return 0;
 }
 
-int route_sustain_to_channel(int channel)
+int clear_router(void)
+{
+    if(g_router == NULL)
+    {
+        puts("Router not initialized!");
+        return -1;
+    }
+
+    fluid_midi_router_clear_rules(g_router);
+    return 0;
+}
+
+int route_cc_to_channel(int channel, int cc_num)
 {
     fluid_midi_router_rule_t *rule;
     
@@ -253,21 +284,57 @@ int route_sustain_to_channel(int channel)
         return -1;
     }
     
-    /* Route sustain pedal (CC 64) from channel 0 to the specified channel */
+    /* Route CC from channel 0 to the specified channel */
     fluid_midi_router_rule_set_chan(rule, 0, 0, 0.0, channel);
     
-    /* Set to only match CC 64 (sustain pedal) */
-    fluid_midi_router_rule_set_param1(rule, 64, 64, 1.0, 0);
+    /* Set to only match the specified CC number */
+    fluid_midi_router_rule_set_param1(rule, cc_num, cc_num, 1.0, 0);
     
     /* Add the rule to the router for CC events */
     if(fluid_midi_router_add_rule(g_router, rule, FLUID_MIDI_ROUTER_RULE_CC) != FLUID_OK)
     {
         delete_fluid_midi_router_rule(rule);
-        puts("Failed to add sustain router rule!");
+        puts("Failed to add CC router rule!");
         return -1;
     }
     
-    printf("Routed sustain pedal to channel %d\n", channel);
+    printf("Routed CC %d to channel %d\n", cc_num, channel);
+    
+    return 0;
+}
+
+int route_sustain_to_channel(int channel)
+{
+    /* Route sustain pedal (CC 64) to the specified channel */
+    return route_cc_to_channel(channel, 64);
+}
+
+int route_volume_to_channel(int channel)
+{
+    /* Route volume control (CC 7) to the specified channel */
+    return route_cc_to_channel(channel, 7);
+}
+
+int set_reverb(double room_size, double damping, double width, double level)
+{
+    if(g_synth == NULL)
+    {
+        puts("Synth not initialized!");
+        return -1;
+    }
+    
+    /* Set reverb parameters on the synthesizer using individual setters */
+    /* Note: These setters are deprecated in FluidSynth 2.5.2 but are the only available API */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    fluid_synth_set_reverb_roomsize(g_synth, room_size);
+    fluid_synth_set_reverb_damp(g_synth, damping);
+    fluid_synth_set_reverb_width(g_synth, width);
+    fluid_synth_set_reverb_level(g_synth, level);
+#pragma GCC diagnostic pop
+    
+    printf("Reverb set: room_size=%.2f, damping=%.2f, width=%.2f, level=%.2f\n",
+           room_size, damping, width, level);
     
     return 0;
 }
@@ -297,3 +364,30 @@ int main(int argc, char **argv)
     return result;
 }
 #endif
+
+/*
+ * Get a soundfont by filename
+ */
+soundfont_t* get_soundfont_by_name(const char *filename)
+{
+    if(filename == NULL || g_soundfonts == NULL || g_sfont_count == 0)
+        return NULL;
+    
+    for(int i = 0; i < g_sfont_count; i++)
+    {
+        if(strcmp(g_soundfonts[i].name, filename) == 0)
+        {
+            return &g_soundfonts[i];
+        }
+    }
+    
+    return NULL;
+}
+
+/*
+ * Get total number of loaded soundfonts
+ */
+int get_soundfont_count(void)
+{
+    return g_sfont_count;
+}

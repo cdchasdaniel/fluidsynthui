@@ -8,7 +8,7 @@ from .models import Patch
 from .forms import PatchForm, VoiceFormSet
 from patches.synth.synth_manager import note_to_midi
 import re
-from .synth.soundfont import pull_out_preset
+from .utils import pull_out_preset
 
 
 def patch_usage(request, pk):
@@ -144,8 +144,8 @@ def apply_patch(request, pk):
 
 def get_presets_json(request, sf_name):
     synth_manager = getattr(settings, 'FLUID_SYNTH', None)
-    if sf_name:
-        presets = synth_manager.all_soundfont_presets[sf_name]["presets"]
+    if synth_manager and sf_name:
+        presets = synth_manager.get_presets_for_file(sf_name)
         return JsonResponse({'presets': presets})
     return JsonResponse({'presets': []}, status=400)
 
