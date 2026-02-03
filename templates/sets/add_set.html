@@ -105,7 +105,7 @@
                             <!-- Keep the form's select in the page but hidden so Django receives selected values -->
                             <div style="display:none;">{{ form.songs }}</div>
 
-                            <div class="small-muted mt-1">Click a song to add it; click the 🗑️ on a selected song to remove it.</div>
+                            <div class="small-muted mt-1">Click a song to add it; click the × on a selected song to remove it.</div>
                         </div>
                     </div>
                 </div>
@@ -182,7 +182,7 @@
                 <td class="song-order-cell" data-order="${it.order||''}">${it.order||''}</td>
                 <td>${it.name}</td>
                 <td><input type="text" class="form-control form-control-sm song-notes" value="${(it.notes||'').replace(/"/g,'&quot;')}"></td>
-                <td><button type="button" class="btn btn-sm btn-icon btn-trash remove-song-btn" title="Remove"><span style="font-size:1.1rem;">🗑️</span></button></td> 
+                <td><button type="button" class="btn btn-sm btn-icon btn-trash remove-song-btn" title="Remove"><span style="font-size:1.1rem;">&times;</span></button></td> 
             `;
             selectedTbody.appendChild(tr);
         });

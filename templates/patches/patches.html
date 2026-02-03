@@ -47,7 +47,7 @@
                     <div class="d-flex gap-3 align-items-center">
                         <!-- Apply Patch Button -->
                         <a href="{% url 'apply_patch' patch.pk %}" class="btn-icon btn-apply" title="Apply Patch Now">
-                            <span style="font-size: 1.1rem;">⚡</span>
+                            <span style="font-size: 1.1rem;">▶</span>
                         </a>
 
                         <!-- Delete Form (client-side checks usage first) -->
@@ -57,7 +57,7 @@
                             {% csrf_token %}
                             <input type="hidden" name="_method" value="DELETE">
                             <button type="submit" class="btn-icon btn-trash delete-patch-btn" title="Delete Patch">
-                                <span style="font-size: 1.2rem;">🗑️</span>
+                                <span style="font-size: 1.2rem;">&times;</span>
                             </button>
                         </form>
                     </div>
