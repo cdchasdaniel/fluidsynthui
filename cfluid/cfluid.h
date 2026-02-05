@@ -19,7 +19,7 @@ typedef struct {
     int preset_count;
 } soundfont_t;
 
-int init_midi_device(const char *soundfont_path);
+int init_midi_device(const char *config_path);
 int cleanup_midi_device(void);
 int set_channel_preset(int channel_num, const char *soundfont_name, const char *preset_name);
 int route_notes_to_channel(int channel, int min_note, int max_note, int volume, int transpose);

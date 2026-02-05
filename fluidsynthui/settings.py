@@ -136,7 +136,6 @@ STATICFILES_DIRS = [
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 FLUID_SYNTH = None
-SOUNDFONT_DIR = 'sf'
 
 
 class IgnoreActiveSongPoll(logging.Filter):

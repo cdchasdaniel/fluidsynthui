@@ -2,6 +2,9 @@ import atexit
 import logging
 import os
 from django.conf import settings
+from django.db import transaction
+from django.db.models import F
+from set.models import Set, SetSong
 from . import init_midi_device, cleanup_midi_device, set_channel_preset, route_notes_to_channel, route_sustain_to_channel, set_reverb, get_soundfont_by_name, clear_router
 from ..utils import note_to_midi
 
@@ -10,11 +13,12 @@ logger = logging.getLogger(__name__)
 
 class FluidMidiManager:
     def __init__(self):
-        # Initialize Synth with soundfont directory
-        soundfont_path = os.path.join(settings.BASE_DIR, 'sf')
-        self.fs = init_midi_device(soundfont_path.encode('utf-8'))
+        # Initialize Synth with config file path
+        config_path = os.path.join(settings.BASE_DIR, 'fluidsynth.cfg')
+        self.fs = init_midi_device(config_path.encode('utf-8'))
         set_channel_preset(0, b'defaultGM.sf2', b"000:000")
         self.active_patch_id = None
+        self._activate_first_song_in_active_set()
         atexit.register(self.cleanup)
 
 
@@ -44,6 +48,65 @@ class FluidMidiManager:
                    reverb_settings["width"],
                    reverb_settings["level"]
                     )
+
+    def _apply_song_patch_if_any(self, song):
+        patch = getattr(song, 'patch', None)
+        if not patch:
+            default_voice = {
+                'channel': 1,
+                'file_name': 'defaultGM.sf2',
+                'preset': '000:000',
+                'sustain': False,
+                'volume': 100,
+                'transpose': 0,
+                'low_note': 'C0',
+                'high_note': 'G10',
+            }
+            self.apply_patch(
+                [default_voice],
+                None,
+                {
+                    'room_size': 0.5,
+                    'damping': 0.5,
+                    'width': 0.5,
+                    'level': 0.9,
+                },
+            )
+            return
+
+        voices_data = list(patch.voices.all().values(
+            'channel', 'file_name', 'preset', 'sustain',
+            'volume', 'transpose', 'low_note', 'high_note'
+        ))
+        reverb_settings = {
+            'room_size': patch.reverb_room_size,
+            'damping': patch.reverb_damping,
+            'width': patch.reverb_width,
+            'level': patch.reverb_level,
+        }
+        self.apply_patch(voices_data, patch.id, reverb_settings)
+
+    def _activate_first_song_in_active_set(self):
+        active = Set.objects.filter(active=True).first()
+        if not active:
+            latest = Set.objects.order_by('-date').first()
+            if not latest:
+                return
+            latest.active = True
+            latest.save()
+            active = latest
+
+        ordered = list(SetSong.objects.filter(set=active).select_related('song')
+                       .order_by(F('order').asc(nulls_last=True), 'song__name'))
+        if not ordered:
+            return
+
+        first = ordered[0]
+        with transaction.atomic():
+            SetSong.objects.filter(set=active).update(active=False)
+            SetSong.objects.filter(pk=first.pk).update(active=True)
+
+        self._apply_song_patch_if_any(first.song)
 
     def get_presets_for_file(self, filename):
         """

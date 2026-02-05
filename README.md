@@ -54,6 +54,8 @@ Originally developed for running on a **Raspberry Pi connected to a Yamaha Keybo
    - Linux: `apt-get install fluidsynth` or `yum install fluidsynth`
    - Windows: Download from [FluidSynth website](https://www.fluidsynth.org/)
 
+For detailed FluidSynth and C-extension setup (installing development headers, pkg-config checks, and building the `cfluid` library), see [SETUP.md](SETUP.md).
+
 5. **Compile the C extension (optional):**
    ```bash
    cd cfluid
@@ -82,7 +84,32 @@ Originally developed for running on a **Raspberry Pi connected to a Yamaha Keybo
 
 ## Configuration
 
-### Settings
+### FluidSynth Settings
+
+All FluidSynth audio and MIDI settings are configured in `fluidsynth.cfg` in the project root. This file is read when the application starts.
+
+**Example configuration:**
+```ini
+# FluidSynth Configuration File
+soundfont_path = /home/charlie/fluidsynthui/sf
+audio.driver = alsa
+audio.period-size = 64
+audio.periods = 2
+audio.realtime-prio = 70
+midi.autoconnect = 1
+```
+
+**Key settings:**
+- `soundfont_path`: Path to the directory containing SoundFont files
+- `audio.driver`: Audio backend (alsa, pulseaudio, jack, oss, etc.)
+- `audio.period-size`: Buffer size in frames (lower = less latency, more CPU)
+- `audio.periods`: Number of audio periods (2-16)
+- `audio.realtime-prio`: Real-time priority (0-99, 0 = disabled)
+- `midi.autoconnect`: Auto-connect MIDI devices (0 or 1)
+
+For a complete list of available settings, see the [FluidSynth documentation](https://www.fluidsynth.org/api/fluidsettings.xml).
+
+### Django Settings
 
 Edit `fluidsynthui/settings.py` to configure:
 - `ALLOWED_HOSTS`: Add your server IP addresses

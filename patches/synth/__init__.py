@@ -5,13 +5,20 @@ Python interface to call the FluidSynth MIDI player from C
 
 import ctypes
 import time
+import platform
 from pathlib import Path
 
 # Get the directory where this script is located
 script_dir = Path(__file__).parent.parent
 
+# Choose library file name based on platform
+if platform.system() == "Darwin":
+    lib_name = "libcfluid.dylib"
+else:
+    lib_name = "libcfluid.so"
+
 # Load the shared library
-lib_path = script_dir.parent / "cfluid" / "libcfluid.dylib"
+lib_path = script_dir.parent / "cfluid" / lib_name
 if not lib_path.exists():
     raise FileNotFoundError(f"Library not found at {lib_path}. Please run 'make lib' in the cfluid directory first.")
 
@@ -35,7 +42,7 @@ class SoundfontT(ctypes.Structure):
     ]
 
 # Define the C function signatures
-# int init_midi_device(const char *soundfont_path);
+# int init_midi_device(const char *config_path);
 init_midi_device = lib.init_midi_device
 init_midi_device.argtypes = [ctypes.c_char_p]
 init_midi_device.restype = ctypes.c_int

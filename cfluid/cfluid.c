@@ -1,6 +1,7 @@
 #include <fluidsynth.h>
 #include "cfluid.h"
- 
+#include "config.h"
+
 #if defined(_WIN32)
 #include <windows.h>
 #define sleep(_t) Sleep(_t * 1000)
@@ -13,6 +14,7 @@
 #include <string.h>
 #endif
 
+
 /* Global pointers to keep track of FluidSynth resources */
 static fluid_settings_t *g_settings = NULL;
 static fluid_synth_t *g_synth = NULL;
@@ -23,24 +25,32 @@ static int g_sfont_id = -1;
 static soundfont_t *g_soundfonts = NULL;
 static int g_sfont_count = 0;
 
-int init_midi_device(const char *soundfont_path)
+int init_midi_device(const char *config_path)
 {
-    char sf_dir[512];
+    char sf_dir[512] = {0};
     char fallback_path[512];
+    config_t config = {0};
     
-    /* Use provided soundfont path or default to ../sf */
-    if(soundfont_path == NULL || soundfont_path[0] == '\0')
+    /* Parse config file */
+    if(config_path == NULL || config_path[0] == '\0')
+    {
+        printf("Error: config_path cannot be empty\n");
+        return -1;
+    }
+    
+    if(!parse_config_file(config_path, &config, sf_dir))
+    {
+        printf("Error: Failed to parse config file\n");
+        return -1;
+    }
+    
+    /* If soundfont_path wasn't in config, use default */
+    if(sf_dir[0] == '\0')
     {
         strncpy(sf_dir, "../sf", sizeof(sf_dir) - 1);
-        strncpy(fallback_path, "../sf/defaultGM.sf2", sizeof(fallback_path) - 1);
-    }
-    else
-    {
-        strncpy(sf_dir, soundfont_path, sizeof(sf_dir) - 1);
-        snprintf(fallback_path, sizeof(fallback_path), "%s/defaultGM.sf2", soundfont_path);
     }
     sf_dir[sizeof(sf_dir) - 1] = '\0';
-    fallback_path[sizeof(fallback_path) - 1] = '\0';
+    snprintf(fallback_path, sizeof(fallback_path), "%s/defaultGM.sf2", sf_dir);
     
     /* Create the settings. */
     g_settings = new_fluid_settings();
@@ -50,8 +60,47 @@ int init_midi_device(const char *soundfont_path)
         return -1;
     }
  
-    /* Change the settings if necessary*/
-    fluid_settings_setint(g_settings, "midi.autoconnect", 1);
+    /* Apply settings from config file */
+    for(int i = 0; i < config.count; i++)
+    {
+        const char *key = config.keys[i];
+        const char *value = config.values[i];
+        
+        /* Check if value looks like a number (try int/float first) */
+        char *endptr;
+        int int_value = strtol(value, &endptr, 10);
+        
+        /* If the entire string was consumed, it's an integer */
+        if(*endptr == '\0' && endptr != value)
+        {
+            if(fluid_settings_setint(g_settings, key, int_value) == FLUID_OK)
+            {
+                printf("Setting %s = %d\n", key, int_value);
+                continue;
+            }
+        }
+        
+        /* Try as double/float */
+        double double_value = strtod(value, &endptr);
+        if(*endptr == '\0' && endptr != value)
+        {
+            if(fluid_settings_setnum(g_settings, key, double_value) == FLUID_OK)
+            {
+                printf("Setting %s = %f\n", key, double_value);
+                continue;
+            }
+        }
+        
+        /* Fall back to string */
+        if(fluid_settings_setstr(g_settings, key, value) == FLUID_OK)
+        {
+            printf("Setting %s = %s\n", key, value);
+        }
+        else
+        {
+            printf("Warning: Could not set %s = %s\n", key, value);
+        }
+    }
  
     /* Create the synthesizer. */
     g_synth = new_fluid_synth(g_settings);
@@ -72,6 +121,7 @@ int init_midi_device(const char *soundfont_path)
     {
         /* Use the first soundfont as default */
         g_sfont_id = g_soundfonts[0].soundfont_id;
+        printf("Using soundfont %s as default.\n", g_soundfonts[0].name);
     }
     
     if(g_sfont_id == FLUID_FAILED)
@@ -81,12 +131,36 @@ int init_midi_device(const char *soundfont_path)
     }
  
     /* Create the audio driver. The synthesizer starts playing as soon
-       as the driver is created. */
+       as the driver is created. If the configured audio driver fails
+       (device busy or not available), try a small set of fallback
+       drivers before giving up and running headless. This helps when
+       users switch between PulseAudio/ALSA or run from CLI vs GUI. */
     g_adriver = new_fluid_audio_driver(g_settings, g_synth);
     if(g_adriver == NULL)
     {
-        puts("Failed to create the audio driver!");
-        goto err;
+        const char *fallbacks[] = {"pulseaudio", "alsa", "jack", "portaudio", "dummy"};
+
+        printf("Warning: Failed to create the audio driver; trying fallbacks.\n");
+
+        for(size_t i = 0; i < sizeof(fallbacks)/sizeof(fallbacks[0]); ++i)
+        {
+            if(fluid_settings_setstr(g_settings, "audio.driver", fallbacks[i]) != FLUID_OK)
+                continue;
+
+            g_adriver = new_fluid_audio_driver(g_settings, g_synth);
+            if(g_adriver != NULL)
+            {
+                printf("Audio driver '%s' created successfully as fallback.\n", fallbacks[i]);
+                break;
+            }
+
+            printf("Fallback driver '%s' failed.\n", fallbacks[i]);
+        }
+
+        if(g_adriver == NULL)
+        {
+            printf("Warning: All audio driver attempts failed; continuing without audio.\n");
+        }
     }
  
     /* Create the MIDI router for note routing */

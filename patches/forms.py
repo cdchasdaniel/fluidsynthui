@@ -27,10 +27,38 @@ def get_sf2_choices(directory):
     path = Path(directory)
     return [(f.name, f.name) for f in path.iterdir() if f.suffix == '.sf2' and f.is_file()]
 
+
+def get_soundfont_dir():
+    """Read soundfont_path from fluidsynth.cfg, fallback to BASE_DIR/sf."""
+    config_path = Path(settings.BASE_DIR) / 'fluidsynth.cfg'
+    fallback = Path(settings.BASE_DIR) / 'sf'
+
+    try:
+        with config_path.open('r', encoding='utf-8') as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' not in line:
+                    continue
+                key, value = line.split('=', 1)
+                if key.strip() == 'soundfont_path':
+                    sf_path = value.strip()
+                    if not sf_path:
+                        return fallback
+                    sf_path = Path(sf_path)
+                    if not sf_path.is_absolute():
+                        sf_path = Path(settings.BASE_DIR) / sf_path
+                    return sf_path
+    except FileNotFoundError:
+        pass
+
+    return fallback
+
 # forms.py
 class VoiceForm(forms.ModelForm):
     # Dynamically find the project 'sf' directory
-    SF_DIR = os.path.join(settings.BASE_DIR, settings.SOUNDFONT_DIR)
+    SF_DIR = str(get_soundfont_dir())
 
     file_name = forms.ChoiceField(
         choices=get_sf2_choices(SF_DIR),
