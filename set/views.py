@@ -197,6 +197,60 @@ def active_set_activate_prev(request):
     })
 
 
+def active_set_activate_first(request):
+    """Mark the first song in the active set as active (POST or GET)."""
+    if request.method not in ['POST', 'GET']:
+        return JsonResponse({'error': 'POST or GET required'}, status=405)
+
+    active = _get_active_set()
+    if not active:
+        return JsonResponse({'error': 'No active set'}, status=404)
+
+    ordered = _ordered_setsongs(active)
+    if not ordered:
+        return JsonResponse({'error': 'Active set has no songs'}, status=400)
+
+    target = ordered[0]
+    with transaction.atomic():
+        from .models import SetSong
+        SetSong.objects.filter(set=active).update(active=False)
+        SetSong.objects.filter(pk=target.pk).update(active=True)
+
+    _apply_song_patch_if_any(target.song)
+
+    return JsonResponse({
+        'song': {'id': target.song.pk, 'name': target.song.name},
+        'current_song_name': target.song.name,
+    })
+
+
+def active_set_activate_last(request):
+    """Mark the last song in the active set as active (POST or GET)."""
+    if request.method not in ['POST', 'GET']:
+        return JsonResponse({'error': 'POST or GET required'}, status=405)
+
+    active = _get_active_set()
+    if not active:
+        return JsonResponse({'error': 'No active set'}, status=404)
+
+    ordered = _ordered_setsongs(active)
+    if not ordered:
+        return JsonResponse({'error': 'Active set has no songs'}, status=400)
+
+    target = ordered[-1]
+    with transaction.atomic():
+        from .models import SetSong
+        SetSong.objects.filter(set=active).update(active=False)
+        SetSong.objects.filter(pk=target.pk).update(active=True)
+
+    _apply_song_patch_if_any(target.song)
+
+    return JsonResponse({
+        'song': {'id': target.song.pk, 'name': target.song.name},
+        'current_song_name': target.song.name,
+    })
+
+
 def active_set_current_song(request):
     """Return the currently active song for the active set (or null)."""
     active = Set.objects.filter(active=True).first()
@@ -308,3 +362,29 @@ def add_set(request, pk=None):
         return redirect('sets')
 
     return render(request, 'sets/add_set.html', {'form': form})
+
+
+def stream_deck(request):
+    """Stream deck view with Prev and Next buttons."""
+    active = _get_active_set()
+    if not active:
+        return render(request, 'sets/stream_deck.html', {
+            'current_song': None,
+        })
+    
+    ordered = _ordered_setsongs(active)
+    if not ordered:
+        return render(request, 'sets/stream_deck.html', {
+            'current_song': None,
+        })
+    
+    # Find current song
+    current_idx = next((i for i, ss in enumerate(ordered) if ss.active), None)
+    if current_idx is None:
+        current_idx = 0
+    
+    current_song = ordered[current_idx].song.name if current_idx < len(ordered) else None
+    
+    return render(request, 'sets/stream_deck.html', {
+        'current_song': current_song,
+    })

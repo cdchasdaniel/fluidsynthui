@@ -20,6 +20,9 @@
             <h2 class="mb-0">Set List</h2>
             <div class="d-flex align-items-center gap-2">
                 {% if sets %}
+                    <a href="{% url 'stream_deck' %}" class="btn btn-success btn-sm shadow-sm" title="Stream Deck Controls">
+                        🎮 Stream Deck
+                    </a>
                     <a href="{% url 'add_set' %}" class="btn btn-primary btn-sm shadow-sm">
                         + Add New Set
                     </a>

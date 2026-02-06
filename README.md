@@ -91,7 +91,7 @@ All FluidSynth audio and MIDI settings are configured in `fluidsynth.cfg` in the
 **Example configuration:**
 ```ini
 # FluidSynth Configuration File
-soundfont_path = /home/charlie/fluidsynthui/sf
+soundfont_path = sf
 audio.driver = alsa
 audio.period-size = 64
 audio.periods = 2
@@ -100,7 +100,7 @@ midi.autoconnect = 1
 ```
 
 **Key settings:**
-- `soundfont_path`: Path to the directory containing SoundFont files
+- `soundfont_path`: Path to the directory containing SoundFont files (can be relative to project root or absolute)
 - `audio.driver`: Audio backend (alsa, pulseaudio, jack, oss, etc.)
 - `audio.period-size`: Buffer size in frames (lower = less latency, more CPU)
 - `audio.periods`: Number of audio periods (2-16)

@@ -28,7 +28,9 @@ static int g_sfont_count = 0;
 int init_midi_device(const char *config_path)
 {
     char sf_dir[512] = {0};
+    char sf_dir_temp[512] = {0};
     char fallback_path[512];
+    char config_dir[512];
     config_t config = {0};
     
     /* Parse config file */
@@ -38,18 +40,48 @@ int init_midi_device(const char *config_path)
         return -1;
     }
     
-    if(!parse_config_file(config_path, &config, sf_dir))
+    if(!parse_config_file(config_path, &config, sf_dir_temp))
     {
         printf("Error: Failed to parse config file\n");
         return -1;
     }
     
-    /* If soundfont_path wasn't in config, use default */
-    if(sf_dir[0] == '\0')
+    /* Get the directory containing the config file */
+    strncpy(config_dir, config_path, sizeof(config_dir) - 1);
+    config_dir[sizeof(config_dir) - 1] = '\0';
+    char *last_slash = strrchr(config_dir, '/');
+    if(last_slash != NULL)
     {
-        strncpy(sf_dir, "../sf", sizeof(sf_dir) - 1);
+        *last_slash = '\0';
     }
-    sf_dir[sizeof(sf_dir) - 1] = '\0';
+    else
+    {
+        config_dir[0] = '.';
+        config_dir[1] = '\0';
+    }
+    
+    printf("Config file: %s\n", config_path);
+    printf("Config directory: %s\n", config_dir);
+    printf("Soundfont path from config: %s\n", sf_dir_temp[0] ? sf_dir_temp : "(empty)");
+    
+    /* If soundfont_path wasn't in config, use default */
+    if(sf_dir_temp[0] == '\0')
+    {
+        snprintf(sf_dir, sizeof(sf_dir), "%s/sf", config_dir);
+    }
+    else if(sf_dir_temp[0] == '/')
+    {
+        /* Absolute path - use as is */
+        strncpy(sf_dir, sf_dir_temp, sizeof(sf_dir) - 1);
+        sf_dir[sizeof(sf_dir) - 1] = '\0';
+    }
+    else
+    {
+        /* Relative path - make it relative to config directory */
+        snprintf(sf_dir, sizeof(sf_dir), "%s/%s", config_dir, sf_dir_temp);
+    }
+    
+    printf("Final soundfont directory: %s\n", sf_dir);
     snprintf(fallback_path, sizeof(fallback_path), "%s/defaultGM.sf2", sf_dir);
     
     /* Create the settings. */

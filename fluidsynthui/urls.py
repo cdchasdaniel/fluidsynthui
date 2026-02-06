@@ -35,10 +35,13 @@ urlpatterns = [
     path('songs/add/', songs_view.add_song, name='add_song'),
     path('songs/edit/<int:pk>/', songs_view.add_song, name='edit_song'),
     path('sets', sets_view.sets, name='sets'), 
+    path('sets/stream-deck/', sets_view.stream_deck, name='stream_deck'),
     path('sets/add/', sets_view.add_set, name='add_set'),
     path('sets/edit/<int:pk>/', sets_view.add_set, name='edit_set'),
     path('sets/activate/<int:pk>/', sets_view.activate_set, name='activate_set'),
     path('sets/active/song/current/', sets_view.active_set_current_song, name='active_set_current_song'),
+    path('sets/active/song/first/activate/', sets_view.active_set_activate_first, name='active_set_activate_first'),
+    path('sets/active/song/last/activate/', sets_view.active_set_activate_last, name='active_set_activate_last'),
     path('sets/active/song/next/activate/', sets_view.active_set_activate_next, name='active_set_activate_next'),
     path('sets/active/song/prev/activate/', sets_view.active_set_activate_prev, name='active_set_activate_prev'),
 

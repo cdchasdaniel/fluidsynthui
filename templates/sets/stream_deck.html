@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .stream-deck-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        gap: 3rem;
+    }
+
+    .current-song-display {
+        text-align: center;
+        font-size: 2.5rem;
+        font-weight: 600;
+        min-height: 3rem;
+        color: #0d6efd;
+        word-wrap: break-word;
+        max-width: 90%;
+    }
+
+    .no-song {
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    .button-container {
+        display: flex;
+        gap: 2rem;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .stream-deck-btn {
+        width: 150px;
+        height: 150px;
+        font-size: 1.5rem;
+        font-weight: 600;
+        border-radius: 8px;
+        border: 2px solid;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stream-deck-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-first {
+        background-color: #198754;
+        color: white;
+        border-color: #157347;
+    }
+
+    .btn-first:hover:not(:disabled) {
+        background-color: #157347;
+        border-color: #146c43;
+        transform: scale(1.05);
+    }
+
+    .btn-prev {
+        background-color: #6c757d;
+        color: white;
+        border-color: #5a6268;
+    }
+
+    .btn-prev:hover:not(:disabled) {
+        background-color: #5a6268;
+        border-color: #4e555b;
+        transform: scale(1.05);
+    }
+
+    .btn-next {
+        background-color: #0d6efd;
+        color: white;
+        border-color: #0b5ed7;
+    }
+
+    .btn-next:hover:not(:disabled) {
+        background-color: #0b5ed7;
+        border-color: #0a58ca;
+        transform: scale(1.05);
+    }
+
+    .btn-last {
+        background-color: #dc3545;
+        color: white;
+        border-color: #bb2d3b;
+    }
+
+    .btn-last:hover:not(:disabled) {
+        background-color: #bb2d3b;
+        border-color: #a02834;
+        transform: scale(1.05);
+    }
+
+    .back-link {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+
+    .back-link a {
+        font-size: 1rem;
+        text-decoration: none;
+        color: #6c757d;
+        transition: color 0.2s;
+    }
+
+    .back-link a:hover {
+        color: #0d6efd;
+    }
+</style>
+
+<div class="back-link">
+    <a href="{% url 'sets' %}" title="Back to Sets">✕</a>
+</div>
+
+<div class="stream-deck-container">
+    <div class="current-song-display" id="songDisplay">
+        {% if current_song %}
+            {{ current_song }}
+        {% else %}
+            <span class="no-song">No song active</span>
+        {% endif %}
+    </div>
+
+    <div class="button-container">
+        <button id="firstBtn" class="stream-deck-btn btn-first">
+            ⏮ FIRST
+        </button>
+
+        <button id="prevBtn" class="stream-deck-btn btn-prev">
+            ◀ PREV
+        </button>
+
+        <button id="nextBtn" class="stream-deck-btn btn-next">
+            NEXT ▶
+        </button>
+
+        <button id="lastBtn" class="stream-deck-btn btn-last">
+            LAST ⏭
+        </button>
+    </div>
+</div>
+
+<script>
+    const firstBtn = document.getElementById('firstBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const lastBtn = document.getElementById('lastBtn');
+    const songDisplay = document.getElementById('songDisplay');
+
+    async function updateDisplay() {
+        try {
+            const response = await fetch("{% url 'active_set_current_song' %}");
+            const data = await response.json();
+            if (data.current_song_name) {
+                songDisplay.innerHTML = data.current_song_name;
+                songDisplay.classList.remove('no-song');
+            } else {
+                songDisplay.innerHTML = '<span class="no-song">No song active</span>';
+                songDisplay.classList.add('no-song');
+            }
+        } catch (err) {
+            console.error('Error updating display:', err);
+        }
+    }
+
+    async function checkButtonStates() {
+        try {
+            // Check if next is available
+            const nextResponse = await fetch("{% url 'active_set_activate_next' %}");
+            const nextData = await nextResponse.json();
+            nextBtn.disabled = nextData.song === null;
+
+            // Check if prev is available
+            const prevResponse = await fetch("{% url 'active_set_activate_prev' %}");
+            const prevData = await prevResponse.json();
+            prevBtn.disabled = prevData.song === null;
+            
+            // First/Last are always enabled if there are songs
+            firstBtn.disabled = false;
+            lastBtn.disabled = false;
+        } catch (err) {
+            console.error('Error checking button states:', err);
+        }
+    }
+
+    firstBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch("{% url 'active_set_activate_first' %}");
+            const data = await response.json();
+            if (data.current_song_name) {
+                songDisplay.innerHTML = data.current_song_name;
+                songDisplay.classList.remove('no-song');
+            }
+            await checkButtonStates();
+        } catch (err) {
+            console.error('Error activating first song:', err);
+        }
+    });
+
+    prevBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch("{% url 'active_set_activate_prev' %}");
+            const data = await response.json();
+            if (data.current_song_name) {
+                songDisplay.innerHTML = data.current_song_name;
+                songDisplay.classList.remove('no-song');
+            }
+            await checkButtonStates();
+        } catch (err) {
+            console.error('Error activating previous song:', err);
+        }
+    });
+
+    nextBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch("{% url 'active_set_activate_next' %}");
+            const data = await response.json();
+            if (data.current_song_name) {
+                songDisplay.innerHTML = data.current_song_name;
+                songDisplay.classList.remove('no-song');
+            }
+            await checkButtonStates();
+        } catch (err) {
+            console.error('Error activating next song:', err);
+        }
+    });
+
+    lastBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch("{% url 'active_set_activate_last' %}");
+            const data = await response.json();
+            if (data.current_song_name) {
+                songDisplay.innerHTML = data.current_song_name;
+                songDisplay.classList.remove('no-song');
+            }
+            await checkButtonStates();
+        } catch (err) {
+            console.error('Error activating last song:', err);
+        }
+    });
+
+    // Initialize on page load
+    checkButtonStates();
+</script>
+{% endblock %}
