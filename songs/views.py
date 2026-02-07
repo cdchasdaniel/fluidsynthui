@@ -1,6 +1,8 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.conf import settings
 
-from fluidsynthui import settings
 from songs.forms import SongForm
 from songs.models import Song
 from patches.models import Patch
@@ -88,4 +90,65 @@ def add_song(request, pk=None):
         'instance': instance,  # Used by the template to toggle "Edit" vs "New" headings
     }
     return render(request, 'songs/add_songs.html', context)
+
+
+@require_POST
+def metronome_start(request, pk):
+    """Start the metronome for a specific song"""
+    try:
+        song = get_object_or_404(Song, pk=pk)
+        
+        if not song.tempo:
+            return JsonResponse({
+                'success': False,
+                'error': 'Song has no tempo set'
+            }, status=400)
+        
+        metronome = settings.METRONOME_MANAGER
+        if not metronome:
+            return JsonResponse({
+                'success': False,
+                'error': 'Metronome not available - manager is None'
+            }, status=500)
+        
+        # Stop any currently running metronome first
+        metronome.stop()
+        
+        # Start the new metronome
+        metronome.start(bpm=song.tempo)
+        return JsonResponse({
+            'success': True,
+            'bpm': song.tempo,
+            'song': song.name
+        })
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)
+
+
+@require_POST
+def metronome_stop(request):
+    """Stop the metronome"""
+    try:
+        metronome = getattr(settings, 'METRONOME_MANAGER', None)
+        if not metronome:
+            return JsonResponse({
+                'success': False,
+                'error': 'Metronome not available - manager is None'
+            }, status=500)
+        
+        metronome.stop()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)
+
 

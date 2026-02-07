@@ -32,6 +32,10 @@ soundfont_t* load_soundfonts(fluid_synth_t *synth, const char *sf_path, int *cou
 void free_soundfonts(soundfont_t *fonts, int count);
 soundfont_t* get_soundfont_by_name(const char *filename);
 int get_soundfont_count(void);
+void* get_synth(void);
+void noteon(int channel, int note, int velocity);
+void noteoff(int channel, int note);
+void program_change(int channel, int program);
 
 #ifdef __cplusplus
 }

@@ -100,6 +100,30 @@
         transform: scale(1.05);
     }
 
+    .btn-metronome-start {
+        background-color: #198754;
+        color: white;
+        border-color: #157347;
+    }
+
+    .btn-metronome-start:hover:not(:disabled) {
+        background-color: #157347;
+        border-color: #146c43;
+        transform: scale(1.05);
+    }
+
+    .btn-metronome-stop {
+        background-color: #dc3545;
+        color: white;
+        border-color: #bb2d3b;
+    }
+
+    .btn-metronome-stop:hover:not(:disabled) {
+        background-color: #bb2d3b;
+        border-color: #a02834;
+        transform: scale(1.05);
+    }
+
     .back-link {
         position: absolute;
         top: 1rem;
@@ -148,6 +172,16 @@
             LAST ⏭
         </button>
     </div>
+
+    <div class="button-container">
+        <button id="metronomeStartBtn" class="stream-deck-btn btn-metronome-start">
+            ▶ METRO
+        </button>
+
+        <button id="metronomeStopBtn" class="stream-deck-btn btn-metronome-stop">
+            ⏹ METRO
+        </button>
+    </div>
 </div>
 
 <script>
@@ -156,6 +190,8 @@
     const nextBtn = document.getElementById('nextBtn');
     const lastBtn = document.getElementById('lastBtn');
     const songDisplay = document.getElementById('songDisplay');
+    const metronomeStartBtn = document.getElementById('metronomeStartBtn');
+    const metronomeStopBtn = document.getElementById('metronomeStopBtn');
 
     async function updateDisplay() {
         try {
@@ -248,6 +284,69 @@
             console.error('Error activating last song:', err);
         }
     });
+
+    metronomeStartBtn.addEventListener('click', async () => {
+        try {
+            // Get current song info to get the song ID
+            const currentResponse = await fetch("{% url 'active_set_current_song' %}");
+            const currentData = await currentResponse.json();
+            
+            if (currentData.current_song_id) {
+                const response = await fetch(`/songs/${currentData.current_song_id}/metronome/start/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCsrfToken(),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    alert('Error starting metronome: ' + (data.error || 'Unknown error'));
+                }
+            } else {
+                alert('No song is currently active');
+            }
+        } catch (err) {
+            console.error('Error starting metronome:', err);
+            alert('Failed to start metronome');
+        }
+    });
+
+    metronomeStopBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch('/songs/metronome/stop/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await response.json();
+            if (!data.success) {
+                alert('Error stopping metronome: ' + (data.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Error stopping metronome:', err);
+            alert('Failed to stop metronome');
+        }
+    });
+
+    function getCsrfToken() {
+        // Get CSRF token from cookie
+        const name = 'csrftoken';
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
 
     // Initialize on page load
     checkButtonStates();

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
 <style>
@@ -11,6 +12,18 @@
 
     /* Specific colors for action types */
     .btn-trash { color: #dc3545; }
+    .btn-metronome { font-size: 1.2rem; cursor: pointer; position: relative; }
+    .btn-metronome img { 
+        width: 24px; 
+        height: 24px; 
+        opacity: 0.6; 
+        transition: opacity 0.2s;
+    }
+    .btn-metronome:hover img { opacity: 1; }
+    .btn-metronome.active img { 
+        opacity: 1; 
+    }
+    .btn-metronome.disabled img { opacity: 0.3; cursor: not-allowed; }
 
     .song-notes {
         white-space: normal;
@@ -117,6 +130,16 @@
                     <!-- Actions -->
                     <td class="pe-4 text-end">
                         <div class="d-flex justify-content-end gap-2">
+                            {% if song.tempo %}
+                            <button class="btn-icon btn-metronome" 
+                                    data-song-id="{{ song.pk }}"
+                                    data-tempo="{{ song.tempo }}"
+                                    title="Start Metronome ({{ song.tempo }} BPM)"
+                                    onclick="toggleMetronome(this)">
+                                <img src="{% static 'images/metronome_off.jpg' %}" alt="Metronome">
+                            </button>
+                            {% endif %}
+                            
                             <a href="{% url 'edit_song' song.pk %}" class="btn-icon text-primary" title="Edit Song">
                                 <span style="font-size: 1.1rem;">✏️</span>
                             </a>
@@ -152,6 +175,89 @@
 </div>
 
 <script>
+let activeMetronomeButton = null;
+
+function toggleMetronome(button) {
+    const songId = button.dataset.songId;
+    const tempo = button.dataset.tempo;
+    const isActive = button.classList.contains('active');
+    
+    if (isActive) {
+        // Stop metronome
+        fetch('/songs/metronome/stop/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                button.classList.remove('active');
+                button.title = `Start Metronome (${tempo} BPM)`;
+                // Switch to off image
+                const img = button.querySelector('img');
+                img.src = '/static/images/metronome_off.jpg';
+                activeMetronomeButton = null;
+            } else {
+                alert('Error stopping metronome: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to stop metronome');
+        });
+    } else {
+        // Stop any currently active metronome first
+        if (activeMetronomeButton && activeMetronomeButton !== button) {
+            fetch('/songs/metronome/stop/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'Content-Type': 'application/json'
+                }
+            });
+            activeMetronomeButton.classList.remove('active');
+            const oldTempo = activeMetronomeButton.dataset.tempo;
+            activeMetronomeButton.title = `Start Metronome (${oldTempo} BPM)`;
+            // Switch to off image
+            const oldImg = activeMetronomeButton.querySelector('img');
+            oldImg.src = '/static/images/metronome_off.jpg';
+        }
+        
+        // Start new metronome
+        fetch(`/songs/${songId}/metronome/start/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                button.classList.add('active');
+                button.title = `Stop Metronome (${tempo} BPM)`;
+                // Switch to animated on image
+                const img = button.querySelector('img');
+                img.src = '/static/images/metronome_on.gif';
+                activeMetronomeButton = button;
+            } else {
+                alert('Error starting metronome: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to start metronome');
+        });
+    }
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
 function toggleNotes(songId, linkElement) {
     const notesDiv = document.getElementById('notes-' + songId);
 

@@ -261,7 +261,10 @@ def active_set_current_song(request):
     ss = SetSong.objects.filter(set=active, active=True).select_related('song').first()
     if not ss:
         return JsonResponse({'song': None})
-    json = {'current_song_name': ss.song.name}
+    json = {
+        'current_song_name': ss.song.name,
+        'current_song_id': ss.song.id
+    }
     return JsonResponse(json)
 
 

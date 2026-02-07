@@ -170,7 +170,11 @@ int init_midi_device(const char *config_path)
     g_adriver = new_fluid_audio_driver(g_settings, g_synth);
     if(g_adriver == NULL)
     {
+        #ifdef __APPLE__
+        const char *fallbacks[] = {"coreaudio", "portaudio", "dummy"};
+        #else
         const char *fallbacks[] = {"pulseaudio", "alsa", "jack", "portaudio", "dummy"};
+        #endif
 
         printf("Warning: Failed to create the audio driver; trying fallbacks.\n");
 
@@ -193,6 +197,10 @@ int init_midi_device(const char *config_path)
         {
             printf("Warning: All audio driver attempts failed; continuing without audio.\n");
         }
+    }
+    else
+    {
+        printf("Audio driver created successfully.\n");
     }
  
     /* Create the MIDI router for note routing */
@@ -496,4 +504,45 @@ soundfont_t* get_soundfont_by_name(const char *filename)
 int get_soundfont_count(void)
 {
     return g_sfont_count;
+}
+
+/*
+ * Get the synth handle for direct access
+ */
+void* get_synth(void)
+{
+    return (void*)g_synth;
+}
+
+/*
+ * Play a note on a channel
+ */
+void noteon(int channel, int note, int velocity)
+{
+    if(g_synth != NULL)
+    {
+        fluid_synth_noteon(g_synth, channel, note, velocity);
+    }
+}
+
+/*
+ * Stop a note on a channel
+ */
+void noteoff(int channel, int note)
+{
+    if(g_synth != NULL)
+    {
+        fluid_synth_noteoff(g_synth, channel, note);
+    }
+}
+
+/*
+ * Change program (instrument) on a channel
+ */
+void program_change(int channel, int program)
+{
+    if(g_synth != NULL)
+    {
+        fluid_synth_program_change(g_synth, channel, program);
+    }
 }

@@ -46,3 +46,6 @@ config/*.yaml
 *.out
 cfluid/libcfluid.dylib
 cfluid/*.o
+
+# Local config (environment-specific)
+fluidsynth.cfg

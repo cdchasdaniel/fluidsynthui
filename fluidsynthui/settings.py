@@ -165,3 +165,8 @@ LOGGING = {
         },
     },
 }
+
+# Metronome Manager
+# Will be initialized when the songs app is ready (see songs/apps.py)
+METRONOME_MANAGER = None
+

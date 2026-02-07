@@ -11,16 +11,16 @@ from pathlib import Path
 script_dir = Path(__file__).parent
 
 # Load the shared library
-lib_path = script_dir.parent / "cfluid" / "libcfluid.dylib"
+lib_path = script_dir.parent / "cfluid" / "libcfluid.so"
 if not lib_path.exists():
     raise FileNotFoundError(f"Library not found at {lib_path}. Please run 'make lib' in the cfluid directory first.")
 
 lib = ctypes.CDLL(str(lib_path))
 
 # Define the C function signatures
-# int init_midi_device(void);
+# int init_midi_device(const char *config_path);
 init_midi_device = lib.init_midi_device
-init_midi_device.argtypes = []
+init_midi_device.argtypes = [ctypes.c_char_p]
 init_midi_device.restype = ctypes.c_int
 
 # int cleanup_midi_device(void);
@@ -52,8 +52,9 @@ def main():
     """Start the MIDI device listener"""
     print("Starting MIDI device listener...")
     
-    # Initialize the MIDI device
-    result = init_midi_device()
+    # Initialize the MIDI device with config path
+    config_path = script_dir.parent / "fluidsynth.cfg"
+    result = init_midi_device(str(config_path).encode('utf-8'))
     if result != 0:
         print("Failed to initialize MIDI device")
         return 1
