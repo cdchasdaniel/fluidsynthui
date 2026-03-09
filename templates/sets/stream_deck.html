@@ -123,7 +123,29 @@
         border-color: #a02834;
         transform: scale(1.05);
     }
+    .btn-service-start {
+        background-color: #20c997;
+        color: white;
+        border-color: #198754;
+    }
 
+    .btn-service-start:hover:not(:disabled) {
+        background-color: #198754;
+        border-color: #146c43;
+        transform: scale(1.05);
+    }
+
+    .btn-service-stop {
+        background-color: #fd7e14;
+        color: white;
+        border-color: #e67e22;
+    }
+
+    .btn-service-stop:hover:not(:disabled) {
+        background-color: #e67e22;
+        border-color: #d68910;
+        transform: scale(1.05);
+    }
     .back-link {
         position: absolute;
         top: 1rem;
@@ -180,6 +202,16 @@
 
         <button id="metronomeStopBtn" class="stream-deck-btn btn-metronome-stop">
             ⏹ METRO
+        </button>
+    </div>
+
+    <div class="button-container">
+        <button id="serviceStartBtn" class="stream-deck-btn btn-service-start">
+            ⏻ START
+        </button>
+
+        <button id="serviceStopBtn" class="stream-deck-btn btn-service-stop">
+            ⏸ STOP
         </button>
     </div>
 </div>
@@ -287,24 +319,10 @@
 
     metronomeStartBtn.addEventListener('click', async () => {
         try {
-            // Get current song info to get the song ID
-            const currentResponse = await fetch("{% url 'active_set_current_song' %}");
-            const currentData = await currentResponse.json();
-            
-            if (currentData.current_song_id) {
-                const response = await fetch(`/songs/${currentData.current_song_id}/metronome/start/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCsrfToken(),
-                        'Content-Type': 'application/json'
-                    }
-                });
-                const data = await response.json();
-                if (!data.success) {
-                    alert('Error starting metronome: ' + (data.error || 'Unknown error'));
-                }
-            } else {
-                alert('No song is currently active');
+            const response = await fetch('/sets/active/song/metronome/start/');
+            const data = await response.json();
+            if (!data.success) {
+                alert('Error starting metronome: ' + (data.error || 'Unknown error'));
             }
         } catch (err) {
             console.error('Error starting metronome:', err);
@@ -314,13 +332,7 @@
 
     metronomeStopBtn.addEventListener('click', async () => {
         try {
-            const response = await fetch('/songs/metronome/stop/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCsrfToken(),
-                    'Content-Type': 'application/json'
-                }
-            });
+            const response = await fetch('/sets/active/song/metronome/stop/');
             const data = await response.json();
             if (!data.success) {
                 alert('Error stopping metronome: ' + (data.error || 'Unknown error'));
@@ -328,6 +340,41 @@
         } catch (err) {
             console.error('Error stopping metronome:', err);
             alert('Failed to stop metronome');
+        }
+    });
+
+    const serviceStartBtn = document.getElementById('serviceStartBtn');
+    const serviceStopBtn = document.getElementById('serviceStopBtn');
+
+    serviceStartBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch('http://localhost:8081/service/start/');
+            const data = await response.json();
+            if (data.success) {
+                alert('Service starting...');
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Error starting service:', err);
+            alert('Failed to start service - is the control daemon running?');
+        }
+    });
+
+    serviceStopBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch('http://localhost:8081/service/stop/');
+            const data = await response.json();
+            if (data.success) {
+                alert('Service stopping...');
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Error stopping service:', err);
+            alert('Failed to stop service - is the control daemon running?');
         }
     });
 

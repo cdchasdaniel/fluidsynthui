@@ -29,6 +29,8 @@ class MetronomeConfig(ctypes.Structure):
         ("program", ctypes.c_int),
         ("velocity", ctypes.c_int),
         ("duration_ms", ctypes.c_int),
+        ("cowbell_note", ctypes.c_int),
+        ("cowbell_program", ctypes.c_int),
     ]
 
 
@@ -53,6 +55,9 @@ lib.metronome_set_bpm.restype = ctypes.c_int
 
 lib.metronome_set_time_signature.argtypes = [ctypes.c_int, ctypes.c_int]
 lib.metronome_set_time_signature.restype = ctypes.c_int
+
+lib.metronome_set_gain.argtypes = [ctypes.c_float]
+lib.metronome_set_gain.restype = ctypes.c_int
 
 
 __all__ = [

@@ -7,7 +7,7 @@ from .models import Song
 class SongForm(forms.ModelForm):
     class Meta:
         model = Song
-        fields = ['name', 'notes', 'tempo', 'patch']
+        fields = ['name', 'notes', 'tempo', 'time_signature', 'patch']
 
         widgets = {
             # Standard Title Input
@@ -29,6 +29,11 @@ class SongForm(forms.ModelForm):
                 'class': 'form-control tempo-input mx-auto',
                 'min': '40',
                 'max': '250'
+            }),
+
+            # Time Signature toggle
+            'time_signature': forms.RadioSelect(attrs={
+                'class': 'form-check-input'
             }),
 
             # Dropdown for Patch selection

@@ -16,6 +16,8 @@ typedef struct {
     int program;      /* Program/preset number (e.g., 16 for power drums) */
     int velocity;     /* Note velocity (0-127) */
     int duration_ms;  /* Note duration in milliseconds */
+    int cowbell_note; /* MIDI note for cowbell (plays on beat 1); 0 = disabled */
+    int cowbell_program; /* Program for cowbell (default uses main program) */
 } metronome_config_t;
 
 /**
@@ -65,6 +67,13 @@ int metronome_set_bpm(int bpm);
  * @return 0 on success, -1 on failure
  */
 int metronome_set_time_signature(int beats_per_measure, int note_value);
+
+/**
+ * Set metronome synth gain/volume
+ * @param gain Gain value (0.0 to 5.0, where 1.0 is normal)
+ * @return 0 on success, -1 on failure
+ */
+int metronome_set_gain(float gain);
 
 #ifdef __cplusplus
 }

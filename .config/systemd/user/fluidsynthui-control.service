@@ -1,0 +1,15 @@
+[Unit]
+Description=FluidSynthUI Service Control Daemon
+After=network.target
+PartOf=user-session.target
+
+[Service]
+Type=simple
+User=charlie
+WorkingDirectory=/home/charlie/fluidsynthui
+ExecStart=/usr/bin/python3 /home/charlie/fluidsynthui/service_control.py 8081
+Restart=always
+RestartSec=3s
+
+[Install]
+WantedBy=default.target

@@ -4,6 +4,7 @@ from fluidsynthui.settings import FLUID_SYNTH
 from set.forms import SetForm
 from .models import Set
 from songs.models import Song
+from patches.models import Patch
 import json
 # --- Active-set JSON services ---
 from django.http import JsonResponse
@@ -65,27 +66,33 @@ def _apply_song_patch_if_any(song):
 
     patch = getattr(song, 'patch', None)
     if not patch:
-        default_voice = {
-            'channel': 1,
-            'file_name': 'defaultGM.sf2',
-            'preset': '000:000',
-            'sustain': False,
-            'volume': 100,
-            'transpose': 0,
-            'low_note': 'C0',
-            'high_note': 'G10',
-        }
-        FLUID_SYNTH.apply_patch(
-            [default_voice],
-            None,
-            {
-                'room_size': 0.5,
-                'damping': 0.5,
-                'width': 0.5,
-                'level': 0.9,
-            },
-        )
-        return
+        # Try to use the Standard Piano patch as default
+        standard_piano = Patch.objects.filter(name='Standard Piano').first()
+        if standard_piano:
+            patch = standard_piano
+        else:
+            # Fallback to hardcoded default if Standard Piano doesn't exist
+            default_voice = {
+                'channel': 1,
+                'file_name': 'defaultGM.sf2',
+                'preset': '000:000',
+                'sustain': False,
+                'volume': 100,
+                'transpose': 0,
+                'low_note': 'C0',
+                'high_note': 'G10',
+            }
+            FLUID_SYNTH.apply_patch(
+                [default_voice],
+                None,
+                {
+                    'room_size': 0.5,
+                    'damping': 0.5,
+                    'width': 0.5,
+                    'level': 0.9,
+                },
+            )
+            return
 
     voices_data = list(patch.voices.all().values(
         'channel', 'file_name', 'preset', 'sustain',
@@ -128,6 +135,11 @@ def active_set_activate_next(request):
     if request.method not in ['POST', 'GET']:
         return JsonResponse({'error': 'POST or GET required'}, status=405)
 
+    # Stop metronome when changing songs
+    metronome = getattr(settings, 'METRONOME_MANAGER', None)
+    if metronome:
+        metronome.stop()
+
     active = _get_active_set()
     if not active:
         return JsonResponse({'error': 'No active set'}, status=404)
@@ -166,6 +178,11 @@ def active_set_activate_prev(request):
     if request.method not in ['POST', 'GET']:
         return JsonResponse({'error': 'POST or GET required'}, status=405)
 
+    # Stop metronome when changing songs
+    metronome = getattr(settings, 'METRONOME_MANAGER', None)
+    if metronome:
+        metronome.stop()
+
     active = _get_active_set()
     if not active:
         return JsonResponse({'error': 'No active set'}, status=404)
@@ -202,6 +219,11 @@ def active_set_activate_first(request):
     if request.method not in ['POST', 'GET']:
         return JsonResponse({'error': 'POST or GET required'}, status=405)
 
+    # Stop metronome when changing songs
+    metronome = getattr(settings, 'METRONOME_MANAGER', None)
+    if metronome:
+        metronome.stop()
+
     active = _get_active_set()
     if not active:
         return JsonResponse({'error': 'No active set'}, status=404)
@@ -228,6 +250,11 @@ def active_set_activate_last(request):
     """Mark the last song in the active set as active (POST or GET)."""
     if request.method not in ['POST', 'GET']:
         return JsonResponse({'error': 'POST or GET required'}, status=405)
+
+    # Stop metronome when changing songs
+    metronome = getattr(settings, 'METRONOME_MANAGER', None)
+    if metronome:
+        metronome.stop()
 
     active = _get_active_set()
     if not active:

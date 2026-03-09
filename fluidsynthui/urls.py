@@ -34,8 +34,6 @@ urlpatterns = [
     path('songs', songs_view.home, name='songs'),
     path('songs/add/', songs_view.add_song, name='add_song'),
     path('songs/edit/<int:pk>/', songs_view.add_song, name='edit_song'),
-    path('songs/<int:pk>/metronome/start/', songs_view.metronome_start, name='metronome_start'),
-    path('songs/metronome/stop/', songs_view.metronome_stop, name='metronome_stop'),
     path('sets', sets_view.sets, name='sets'), 
     path('sets/stream-deck/', sets_view.stream_deck, name='stream_deck'),
     path('sets/add/', sets_view.add_set, name='add_set'),
@@ -46,5 +44,11 @@ urlpatterns = [
     path('sets/active/song/last/activate/', sets_view.active_set_activate_last, name='active_set_activate_last'),
     path('sets/active/song/next/activate/', sets_view.active_set_activate_next, name='active_set_activate_next'),
     path('sets/active/song/prev/activate/', sets_view.active_set_activate_prev, name='active_set_activate_prev'),
+    path('sets/active/song/metronome/start/', songs_view.metronome_start, name='metronome_start'),
+    path('sets/active/song/metronome/stop/', songs_view.metronome_stop, name='metronome_stop'),
+    path('sets/active/song/metronome/faster/', songs_view.metronome_faster, name='metronome_faster'),
+    path('sets/active/song/metronome/slower/', songs_view.metronome_slower, name='metronome_slower'),
+    path('sets/active/song/metronome/softer/', songs_view.metronome_softer, name='metronome_softer'),
+    path('sets/active/song/metronome/louder/', songs_view.metronome_louder, name='metronome_louder'),
 
 ]

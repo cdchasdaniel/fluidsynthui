@@ -1,0 +1,14 @@
+[Unit]
+Description=FluidSynthUI Django Server
+After=network.target
+
+[Service]
+Type=simple
+User=charlie
+WorkingDirectory=/home/charlie/fluidsynthui
+ExecStart=/home/charlie/fluidsynthui/start_server.sh
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

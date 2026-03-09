@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import F
 from set.models import Set, SetSong
+from patches.models import Patch
 from . import init_midi_device, cleanup_midi_device, set_channel_preset, route_notes_to_channel, route_sustain_to_channel, set_reverb, get_soundfont_by_name, clear_router
 from ..utils import note_to_midi
 
@@ -16,7 +17,6 @@ class FluidMidiManager:
         # Initialize Synth with config file path
         config_path = os.path.join(settings.BASE_DIR, 'fluidsynth.cfg')
         self.fs = init_midi_device(config_path.encode('utf-8'))
-        set_channel_preset(0, b'defaultGM.sf2', b"000:000")
         self.active_patch_id = None
         self._activate_first_song_in_active_set()
         atexit.register(self.cleanup)
@@ -52,27 +52,33 @@ class FluidMidiManager:
     def _apply_song_patch_if_any(self, song):
         patch = getattr(song, 'patch', None)
         if not patch:
-            default_voice = {
-                'channel': 1,
-                'file_name': 'defaultGM.sf2',
-                'preset': '000:000',
-                'sustain': False,
-                'volume': 100,
-                'transpose': 0,
-                'low_note': 'C0',
-                'high_note': 'G10',
-            }
-            self.apply_patch(
-                [default_voice],
-                None,
-                {
-                    'room_size': 0.5,
-                    'damping': 0.5,
-                    'width': 0.5,
-                    'level': 0.9,
-                },
-            )
-            return
+            # Try to use the Standard Piano patch as default
+            standard_piano = Patch.objects.filter(name='Standard Piano').first()
+            if standard_piano:
+                patch = standard_piano
+            else:
+                # Fallback to hardcoded default if Standard Piano doesn't exist
+                default_voice = {
+                    'channel': 1,
+                    'file_name': 'defaultGM.sf2',
+                    'preset': '000:000',
+                    'sustain': False,
+                    'volume': 100,
+                    'transpose': 0,
+                    'low_note': 'C0',
+                    'high_note': 'G10',
+                }
+                self.apply_patch(
+                    [default_voice],
+                    None,
+                    {
+                        'room_size': 0.5,
+                        'damping': 0.5,
+                        'width': 0.5,
+                        'level': 0.9,
+                    },
+                )
+                return
 
         voices_data = list(patch.voices.all().values(
             'channel', 'file_name', 'preset', 'sustain',

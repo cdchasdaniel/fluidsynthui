@@ -92,17 +92,33 @@ def add_song(request, pk=None):
     return render(request, 'songs/add_songs.html', context)
 
 
-@require_POST
-def metronome_start(request, pk):
-    """Start the metronome for a specific song"""
+def metronome_start(request):
+    """Start the metronome using the current active song's tempo and time signature"""
     try:
-        song = get_object_or_404(Song, pk=pk)
+        from set.models import Set, SetSong
         
-        if not song.tempo:
+        # Get the active set and its active song
+        active_set = Set.objects.filter(active=True).first()
+        if not active_set:
             return JsonResponse({
                 'success': False,
-                'error': 'Song has no tempo set'
+                'error': 'No active set'
             }, status=400)
+        
+        active_song_entry = SetSong.objects.filter(set=active_set, active=True).first()
+        if not active_song_entry:
+            return JsonResponse({
+                'success': False,
+                'error': 'No active song in the active set'
+            }, status=400)
+        
+        song = active_song_entry.song
+        # Use song's tempo if available, otherwise default to 100
+        bpm = song.tempo if song.tempo else 100
+        
+        # Parse time signature (e.g., "4/4" or "6/8")
+        time_sig = song.time_signature if song.time_signature else "4/4"
+        beats_per_measure, note_value = map(int, time_sig.split('/'))
         
         metronome = settings.METRONOME_MANAGER
         if not metronome:
@@ -114,11 +130,13 @@ def metronome_start(request, pk):
         # Stop any currently running metronome first
         metronome.stop()
         
-        # Start the new metronome
-        metronome.start(bpm=song.tempo)
+        # Start the new metronome with cowbell on beat 1 (MIDI note 102 = bright cowbell)
+        metronome.start(bpm=bpm, beats_per_measure=beats_per_measure, 
+                       note_value=note_value, cowbell_note=102)
         return JsonResponse({
             'success': True,
-            'bpm': song.tempo,
+            'bpm': str(bpm),
+            'time_signature': time_sig,
             'song': song.name
         })
     except Exception as e:
@@ -130,7 +148,6 @@ def metronome_start(request, pk):
         }, status=500)
 
 
-@require_POST
 def metronome_stop(request):
     """Stop the metronome"""
     try:
@@ -150,5 +167,144 @@ def metronome_stop(request):
             'error': str(e),
             'traceback': traceback.format_exc()
         }, status=500)
+
+
+def metronome_faster(request):
+    """Increase metronome BPM by 1"""
+    try:
+        metronome = getattr(settings, 'METRONOME_MANAGER', None)
+        if not metronome:
+            return JsonResponse({
+                'success': False,
+                'error': 'Metronome not available - manager is None'
+            }, status=500)
+        
+        # Get current config and increase BPM by 1
+        if not metronome.is_running:
+            return JsonResponse({
+                'success': False,
+                'error': 'Metronome not running'
+            }, status=400)
+        
+        current_bpm = metronome.current_config.get('bpm', 100) if metronome.current_config else 100
+        new_bpm = current_bpm + 1
+        
+        # Set the new BPM
+        metronome.set_bpm(new_bpm)
+        
+        return JsonResponse({
+            'success': True,
+            'bpm': new_bpm,
+            'song': '(metronome running)'
+        })
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)
+
+
+def metronome_slower(request):
+    """Decrease metronome BPM by 1"""
+    try:
+        metronome = getattr(settings, 'METRONOME_MANAGER', None)
+        if not metronome:
+            return JsonResponse({
+                'success': False,
+                'error': 'Metronome not available - manager is None'
+            }, status=500)
+        
+        # Get current config and decrease BPM by 1
+        if not metronome.is_running:
+            return JsonResponse({
+                'success': False,
+                'error': 'Metronome not running'
+            }, status=400)
+        
+        current_bpm = metronome.current_config.get('bpm', 100) if metronome.current_config else 100
+        new_bpm = max(1, current_bpm - 1)  # Ensure BPM doesn't go below 1
+        
+        # Set the new BPM
+        metronome.set_bpm(new_bpm)
+        
+        return JsonResponse({
+            'success': True,
+            'bpm': new_bpm,
+            'song': '(metronome running)'
+        })
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)
+
+
+def metronome_softer(request):
+    """Decrease metronome gain by 0.1"""
+    try:
+        metronome = getattr(settings, 'METRONOME_MANAGER', None)
+        if not metronome:
+            return JsonResponse({
+                'success': False,
+                'error': 'Metronome not available - manager is None'
+            }, status=500)
+        
+        # Get current gain and decrease by 0.1
+        current_gain = metronome.current_gain if hasattr(metronome, 'current_gain') else 5.0
+        new_gain = max(0.0, current_gain - 0.1)  # Ensure gain doesn't go below 0
+        new_gain = round(new_gain, 1)  # Round to 1 decimal place
+        
+        # Set the new gain
+        metronome.set_gain(new_gain)
+        
+        return JsonResponse({
+            'success': True,
+            'gain': new_gain,
+            'message': 'Metronome volume decreased'
+        })
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)
+
+
+def metronome_louder(request):
+    """Increase metronome gain by 0.1"""
+    try:
+        metronome = getattr(settings, 'METRONOME_MANAGER', None)
+        if not metronome:
+            return JsonResponse({
+                'success': False,
+                'error': 'Metronome not available - manager is None'
+            }, status=500)
+        
+        # Get current gain and increase by 0.1
+        current_gain = metronome.current_gain if hasattr(metronome, 'current_gain') else 5.0
+        new_gain = min(5.0, current_gain + 0.1)  # Ensure gain doesn't exceed 5.0
+        new_gain = round(new_gain, 1)  # Round to 1 decimal place
+        
+        # Set the new gain
+        metronome.set_gain(new_gain)
+        
+        return JsonResponse({
+            'success': True,
+            'gain': str(new_gain),
+            'message': 'Metronome volume increased'
+        })
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)
+
 
 

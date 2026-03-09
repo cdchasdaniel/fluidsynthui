@@ -27,6 +27,7 @@ class MetronomeManager:
         self.is_initialized = False
         self.is_running = False
         self.current_config = None
+        self.current_gain = 5.0  # Default to maximum volume
         
         logger.info("Initializing metronome...")
         config_bytes = config_path.encode('utf-8') if isinstance(config_path, str) else config_path
@@ -42,7 +43,7 @@ class MetronomeManager:
 
     def start(self, bpm=120, beats_per_measure=4, note_value=4,
               accent_note=68, normal_note=56, channel=0, bank=128, program=16,
-              velocity=100, duration_ms=200):
+              velocity=100, duration_ms=200, cowbell_note=0, cowbell_program=0):
         """
         Start the metronome.
         
@@ -57,6 +58,8 @@ class MetronomeManager:
             program: MIDI program/preset number (default: 16 = power drums)
             velocity: Note velocity 0-127 (default: 100)
             duration_ms: Note duration in milliseconds (default: 200)
+            cowbell_note: MIDI note for cowbell on beat 1 (0 = disabled, default: 0)
+            cowbell_program: Program for cowbell if different from main (default: 0 = use main)
         """
         if not self.is_initialized:
             raise RuntimeError("Metronome not initialized")
@@ -76,6 +79,8 @@ class MetronomeManager:
             program=program,
             velocity=velocity,
             duration_ms=duration_ms,
+            cowbell_note=cowbell_note,
+            cowbell_program=cowbell_program,
         )
         
         ret = lib.metronome_start(config)
@@ -92,9 +97,11 @@ class MetronomeManager:
             'channel': channel,
             'bank': bank,
             'program': program,
+            'cowbell_note': cowbell_note,
+            'cowbell_program': cowbell_program,
         }
         
-        logger.info(f"Metronome started: BPM={bpm}, Time={beats_per_measure}/{note_value}, Bank={bank}, Program={program}")
+        logger.info(f"Metronome started: BPM={bpm}, Time={beats_per_measure}/{note_value}, Bank={bank}, Program={program}, Cowbell={cowbell_note if cowbell_note > 0 else 'disabled'}")
 
     def stop(self):
         """Stop the metronome."""
@@ -157,6 +164,23 @@ class MetronomeManager:
             self.current_config['note_value'] = note_value
         
         logger.info(f"Time signature updated to {beats_per_measure}/{note_value}")
+
+    def set_gain(self, gain):
+        """
+        Set metronome synth gain/volume.
+        
+        Args:
+            gain: Gain value (0.0 to 5.0, where 1.0 is normal)
+        """
+        if gain < 0.0 or gain > 5.0:
+            raise ValueError(f"Invalid gain: {gain} (must be 0.0-5.0)")
+        
+        ret = lib.metronome_set_gain(gain)
+        if ret != 0:
+            raise RuntimeError(f"Failed to set gain to {gain}")
+        
+        self.current_gain = gain
+        logger.info(f"Metronome gain set to {gain}")
 
     def cleanup(self):
         """Clean up metronome resources."""

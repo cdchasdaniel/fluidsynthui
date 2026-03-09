@@ -114,6 +114,10 @@ int metronome_init(const char *config_path, const char *soundfont_path)
         return -1;
     }
 
+    /* Set metronome synth to maximum volume (loudest possible) */
+    fluid_synth_set_gain(g_metronome.synth, 5.0f);  /* Maximum gain */
+    printf("Metronome synth gain set to 5.0 (maximum volume)\n");
+
     /* Create audio driver */
     g_metronome.adriver = new_fluid_audio_driver(g_metronome.settings, g_metronome.synth);
     if (g_metronome.adriver == NULL) {
@@ -301,6 +305,26 @@ int metronome_set_time_signature(int beats_per_measure, int note_value)
     return 0;
 }
 
+int metronome_set_gain(float gain)
+{
+    if (!g_metronome.is_initialized || g_metronome.synth == NULL) {
+        fprintf(stderr, "Metronome not initialized\n");
+        return -1;
+    }
+
+    if (gain < 0.0f || gain > 5.0f) {
+        fprintf(stderr, "Invalid gain: %.1f (must be 0.0-5.0)\n", gain);
+        return -1;
+    }
+
+    pthread_mutex_lock(&g_metronome.mutex);
+    fluid_synth_set_gain(g_metronome.synth, gain);
+    pthread_mutex_unlock(&g_metronome.mutex);
+
+    printf("Metronome gain set to %.1f\n", gain);
+    return 0;
+}
+
 /* Helper functions */
 
 static long get_time_ms(void)
@@ -344,6 +368,47 @@ static void play_note(int note, int velocity, int duration_ms)
     fluid_synth_noteoff(g_metronome.synth, config.channel, note);
 }
 
+static void play_notes_parallel(int note1, int velocity1, int note2, int velocity2, int duration_ms)
+{
+    /* Play two notes in parallel (simultaneously) instead of sequentially */
+    metronome_config_t config;
+    pthread_mutex_lock(&g_metronome.mutex);
+    memcpy(&config, &g_metronome.config, sizeof(metronome_config_t));
+    pthread_mutex_unlock(&g_metronome.mutex);
+
+    printf("  -> Playing parallel notes: %d (%d vel) + %d (%d vel), duration: %dms\n", 
+           note1, velocity1, note2, velocity2, duration_ms);
+
+    /* Set bank and program (for primary note) */
+    int ret = fluid_synth_bank_select(g_metronome.synth, config.channel, config.bank);
+    if (ret != FLUID_OK) {
+        fprintf(stderr, "  ERROR: bank_select failed with code %d\n", ret);
+    }
+    
+    ret = fluid_synth_program_change(g_metronome.synth, config.channel, config.program);
+    if (ret != FLUID_OK) {
+        fprintf(stderr, "  ERROR: program_change failed with code %d\n", ret);
+    }
+
+    /* Send both notes on simultaneously */
+    ret = fluid_synth_noteon(g_metronome.synth, config.channel, note1, velocity1);
+    if (ret != FLUID_OK) {
+        fprintf(stderr, "  ERROR: noteon note1 failed with code %d\n", ret);
+    }
+
+    ret = fluid_synth_noteon(g_metronome.synth, config.channel, note2, velocity2);
+    if (ret != FLUID_OK) {
+        fprintf(stderr, "  ERROR: noteon note2 failed with code %d\n", ret);
+    }
+
+    /* Sleep for note duration (shared for both) */
+    usleep(duration_ms * 1000);
+
+    /* Send both notes off simultaneously */
+    fluid_synth_noteoff(g_metronome.synth, config.channel, note1);
+    fluid_synth_noteoff(g_metronome.synth, config.channel, note2);
+}
+
 static void* metronome_thread_func(void *arg)
 {
     (void)arg;  /* Unused */
@@ -363,7 +428,8 @@ static void* metronome_thread_func(void *arg)
         pthread_mutex_unlock(&g_metronome.mutex);
 
         /* Calculate beat duration in milliseconds */
-        long beat_duration_ms = (60000 / config.bpm);
+        /* Adjust for note value: quarter note=4 is the reference, eighth note=8 is half the duration */
+        long beat_duration_ms = (long)(60000.0 / config.bpm * 4.0 / config.note_value);
         long current_time = get_time_ms();
         long elapsed = current_time - last_beat_time;
 
@@ -375,7 +441,12 @@ static void* metronome_thread_func(void *arg)
             int note = is_accent ? config.accent_note : config.normal_note;
             int velocity = is_accent ? 100 : 80;
 
-            play_note(note, velocity, config.duration_ms);
+            /* Play cowbell in parallel with accent on beat 1 if configured */
+            if (is_accent && config.cowbell_note > 0) {
+                play_notes_parallel(note, velocity, config.cowbell_note, 100, config.duration_ms);
+            } else {
+                play_note(note, velocity, config.duration_ms);
+            }
 
             printf("Metronome beat %d/%d (%s)\n", beat_in_measure + 1, config.beats_per_measure,
                    is_accent ? "ACCENT" : "normal");

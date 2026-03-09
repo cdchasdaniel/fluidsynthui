@@ -21,6 +21,12 @@
         display: block;
         margin-bottom: 0.5rem;
     }
+
+    /* Enable scrolling on patch selection dropdown */
+    #id_patch {
+        max-height: 300px;
+        overflow-y: auto;
+    }
 </style>
 
 <div class="container py-4">
@@ -73,6 +79,29 @@
                                                value="{{ form.tempo.value|default:120 }}" 
                                                oninput="this.previousElementSibling.firstElementChild.value = this.value">
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Time Signature Section -->
+                        <div class="mb-4">
+                            <div class="p-3 rounded shadow-sm song-card">
+                                <label class="label-caps">Metronome Time Signature</label>
+                                <div class="d-flex gap-4 mt-3">
+                                    {% for radio in form.time_signature %}
+                                        <div class="form-check">
+                                            {{ radio.tag }}
+                                            <label class="form-check-label" for="{{ radio.id_for_label }}">
+                                                {{ radio.choice_label }}
+                                            </label>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle"></i>
+                                        Controls metronome beat pattern: 4/4 (four beats per measure) or 6/8 (six eighth notes per measure).
+                                    </small>
                                 </div>
                             </div>
                         </div>
