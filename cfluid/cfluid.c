@@ -1,6 +1,7 @@
 #include <fluidsynth.h>
 #include "cfluid.h"
 #include "config.h"
+#include "mp3_player.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -24,6 +25,26 @@ static fluid_midi_router_t *g_router = NULL;
 static int g_sfont_id = -1;
 static soundfont_t *g_soundfonts = NULL;
 static int g_sfont_count = 0;
+
+static int midi_event_handler(void *data, fluid_midi_event_t *event)
+{
+    fluid_midi_router_t *router = (fluid_midi_router_t *)data;
+    int type = fluid_midi_event_get_type(event);
+
+    /* CC type may be reported as either 11 or 0xB0 depending on source. */
+    if(type == 11 || type == 0xB0)
+    {
+        int channel = fluid_midi_event_get_channel(event);
+        int cc = fluid_midi_event_get_control(event);
+        int value = fluid_midi_event_get_value(event);
+
+        printf("[MIDI-CC] ch=%d cc=%d value=%d\n", channel, cc, value);
+        fflush(stdout);
+        mp3_handle_cc_event(cc, value);
+    }
+
+    return fluid_midi_router_handle_midi_event(router, event);
+}
 
 int init_midi_device(const char *config_path)
 {
@@ -212,7 +233,7 @@ int init_midi_device(const char *config_path)
     }
     
     /* Create the MIDI driver that uses the router */
-    g_mdriver = new_fluid_midi_driver(g_settings, fluid_midi_router_handle_midi_event, g_router);
+    g_mdriver = new_fluid_midi_driver(g_settings, midi_event_handler, g_router);
     if(g_mdriver == NULL)
     {
         puts("Failed to create the MIDI driver!");
@@ -241,6 +262,8 @@ err:
 
 int cleanup_midi_device(void)
 {
+    stop_mp3_playback();
+
     /* Clean up */
     if(g_mdriver != NULL) delete_fluid_midi_driver(g_mdriver);
     if(g_router != NULL) delete_fluid_midi_router(g_router);

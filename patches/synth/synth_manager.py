@@ -1,12 +1,13 @@
 import atexit
 import logging
 import os
+from pathlib import Path
 from django.conf import settings
 from django.db import transaction
 from django.db.models import F
 from set.models import Set, SetSong
 from patches.models import Patch
-from . import init_midi_device, cleanup_midi_device, set_channel_preset, route_notes_to_channel, route_sustain_to_channel, set_reverb, get_soundfont_by_name, clear_router
+from . import init_midi_device, cleanup_midi_device, set_channel_preset, route_notes_to_channel, route_sustain_to_channel, set_reverb, get_soundfont_by_name, clear_router, set_mp3_slot_path
 from ..utils import note_to_midi
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,21 @@ class FluidMidiManager:
                    reverb_settings["level"]
                     )
 
+    def apply_song_mp3_slots(self, song):
+        """Push active song MP3 slot file paths to C bridge for CC16-CC23 triggers."""
+        mp3_root = Path(settings.BASE_DIR) / 'static' / 'mp3'
+        for slot in range(1, 9):
+            mp3_name = getattr(song, f'mp3_slot_{slot}', None)
+            if not mp3_name:
+                set_mp3_slot_path(slot, b'')
+                continue
+
+            full_path = mp3_root / mp3_name
+            if full_path.exists():
+                set_mp3_slot_path(slot, str(full_path).encode('utf-8'))
+            else:
+                set_mp3_slot_path(slot, b'')
+
     def _apply_song_patch_if_any(self, song):
         patch = getattr(song, 'patch', None)
         if not patch:
@@ -78,6 +94,7 @@ class FluidMidiManager:
                         'level': 0.9,
                     },
                 )
+                self.apply_song_mp3_slots(song)
                 return
 
         voices_data = list(patch.voices.all().values(
@@ -91,6 +108,7 @@ class FluidMidiManager:
             'level': patch.reverb_level,
         }
         self.apply_patch(voices_data, patch.id, reverb_settings)
+        self.apply_song_mp3_slots(song)
 
     def _activate_first_song_in_active_set(self):
         active = Set.objects.filter(active=True).first()

@@ -6,6 +6,7 @@
     .tempo-input { width: 100px !important; text-align: center; font-weight: bold; }
     .patch-select-width { width: 100% !important; }
     .notes-area { min-height: 120px; resize: none; font-size: 0.9rem; }
+    .mp3-slot-label { font-size: 0.75rem; font-weight: 700; color: #495057; }
 
     .song-card {
         transition: all 0.2s ease;
@@ -114,6 +115,52 @@
                                 <div class="mt-2 d-flex justify-content-between">
                                     <small class="text-muted">Structure, key changes, or hardware cues.</small>
                                     <small class="text-muted text-uppercase" id="char-count" style="font-size: 0.6rem;">Max 500 chars</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MIDI Button MP3 Trigger Mapping -->
+                        <div class="mb-4">
+                            <div class="p-3 rounded shadow-sm song-card">
+                                <label class="label-caps">MIDI Button MP3 Triggers (POC)</label>
+                                <div class="row g-3 mt-1">
+                                    <div class="col-md-6">
+                                        <label class="mp3-slot-label" for="{{ form.mp3_slot_1.id_for_label }}">{{ form.mp3_slot_1.label }}</label>
+                                        {{ form.mp3_slot_1 }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="mp3-slot-label" for="{{ form.mp3_slot_2.id_for_label }}">{{ form.mp3_slot_2.label }}</label>
+                                        {{ form.mp3_slot_2 }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="mp3-slot-label" for="{{ form.mp3_slot_3.id_for_label }}">{{ form.mp3_slot_3.label }}</label>
+                                        {{ form.mp3_slot_3 }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="mp3-slot-label" for="{{ form.mp3_slot_4.id_for_label }}">{{ form.mp3_slot_4.label }}</label>
+                                        {{ form.mp3_slot_4 }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="mp3-slot-label" for="{{ form.mp3_slot_5.id_for_label }}">{{ form.mp3_slot_5.label }}</label>
+                                        {{ form.mp3_slot_5 }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="mp3-slot-label" for="{{ form.mp3_slot_6.id_for_label }}">{{ form.mp3_slot_6.label }}</label>
+                                        {{ form.mp3_slot_6 }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="mp3-slot-label" for="{{ form.mp3_slot_7.id_for_label }}">{{ form.mp3_slot_7.label }}</label>
+                                        {{ form.mp3_slot_7 }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="mp3-slot-label" for="{{ form.mp3_slot_8.id_for_label }}">{{ form.mp3_slot_8.label }}</label>
+                                        {{ form.mp3_slot_8 }}
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        MP3 files are loaded from <code>static/mp3</code>. Current mapping assumes 8 controller buttons (CC16-CC23).
+                                    </small>
                                 </div>
                             </div>
                         </div>

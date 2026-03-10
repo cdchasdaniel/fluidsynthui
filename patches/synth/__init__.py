@@ -11,18 +11,46 @@ from pathlib import Path
 # Get the directory where this script is located
 script_dir = Path(__file__).parent.parent
 
-# Choose library file name based on platform
+# Choose and load primary synth library.
+lib_candidates = []
 if platform.system() == "Darwin":
-    lib_name = "libcfluid.dylib"
+    # Prefer .so because our local Makefile rebuild updates this file.
+    lib_candidates = ["libcfluid.so", "libcfluid.dylib"]
 else:
-    lib_name = "libcfluid.so"
+    lib_candidates = ["libcfluid.so"]
 
-# Load the shared library
-lib_path = script_dir.parent / "cfluid" / lib_name
-if not lib_path.exists():
-    raise FileNotFoundError(f"Library not found at {lib_path}. Please run 'make lib' in the cfluid directory first.")
+lib = None
+loaded_from = None
+for candidate in lib_candidates:
+    lib_path = script_dir.parent / "cfluid" / candidate
+    if lib_path.exists():
+        lib = ctypes.CDLL(str(lib_path))
+        loaded_from = lib_path
+        break
 
-lib = ctypes.CDLL(str(lib_path))
+if lib is None:
+    raise FileNotFoundError(
+        f"Library not found. Tried: {', '.join(str(script_dir.parent / 'cfluid' / c) for c in lib_candidates)}"
+    )
+
+print(f"[cfluid] Loaded library: {loaded_from}")
+
+
+def _resolve_symbol(symbol_name):
+    """Resolve symbol from primary lib, then fallback candidates if needed."""
+    try:
+        return getattr(lib, symbol_name)
+    except AttributeError:
+        for candidate in lib_candidates:
+            lib_path = script_dir.parent / "cfluid" / candidate
+            if not lib_path.exists():
+                continue
+            try:
+                alt_lib = ctypes.CDLL(str(lib_path))
+                return getattr(alt_lib, symbol_name)
+            except AttributeError:
+                continue
+        raise
 
 # Define C structures
 class PresetT(ctypes.Structure):
@@ -86,3 +114,18 @@ get_soundfont_by_name.restype = ctypes.POINTER(SoundfontT)
 get_soundfont_count = lib.get_soundfont_count
 get_soundfont_count.argtypes = []
 get_soundfont_count.restype = ctypes.c_int
+
+# int play_mp3_file(const char *file_path);
+play_mp3_file = _resolve_symbol('play_mp3_file')
+play_mp3_file.argtypes = [ctypes.c_char_p]
+play_mp3_file.restype = ctypes.c_int
+
+# int stop_mp3_playback(void);
+stop_mp3_playback = _resolve_symbol('stop_mp3_playback')
+stop_mp3_playback.argtypes = []
+stop_mp3_playback.restype = ctypes.c_int
+
+# int set_mp3_slot_path(int slot, const char *file_path);
+set_mp3_slot_path = _resolve_symbol('set_mp3_slot_path')
+set_mp3_slot_path.argtypes = [ctypes.c_int, ctypes.c_char_p]
+set_mp3_slot_path.restype = ctypes.c_int

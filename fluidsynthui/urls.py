@@ -50,5 +50,6 @@ urlpatterns = [
     path('sets/active/song/metronome/slower/', songs_view.metronome_slower, name='metronome_slower'),
     path('sets/active/song/metronome/softer/', songs_view.metronome_softer, name='metronome_softer'),
     path('sets/active/song/metronome/louder/', songs_view.metronome_louder, name='metronome_louder'),
+    path('sets/active/song/mp3/stop/', songs_view.stop_active_song_mp3, name='stop_active_song_mp3'),
 
 ]

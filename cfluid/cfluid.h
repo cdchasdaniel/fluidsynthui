@@ -36,6 +36,9 @@ void* get_synth(void);
 void noteon(int channel, int note, int velocity);
 void noteoff(int channel, int note);
 void program_change(int channel, int program);
+int play_mp3_file(const char *file_path);
+int stop_mp3_playback(void);
+int set_mp3_slot_path(int slot, const char *file_path);
 
 #ifdef __cplusplus
 }
