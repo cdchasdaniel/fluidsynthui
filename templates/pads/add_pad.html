@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .sf-select-width { width: 220px !important; }
+    .pre-width { width: 200px !important; }
+    .note-input {
+        width: 100% !important;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0 text-center">{% if instance %}Edit Pad{% else %}New Pad{% endif %}</h4>
+            </div>
+
+            <div class="card-body bg-light">
+                {% if messages %}
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        {% for message in messages %}
+                            <div>{{ message }}</div>
+                        {% endfor %}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endif %}
+
+                <form method="POST" id="pad-form" class="p-3">
+                    {% csrf_token %}
+                    
+                    <!-- Pad Name -->
+                    <div class="mb-4 text-center">
+                        <label class="form-label small fw-bold text-uppercase text-muted">Pad Name</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="text-danger small">{{ form.name.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Soundfont & Preset Selection -->
+                    <div class="card mb-4 border-0 shadow-sm">
+                        <div class="card-header bg-white border-0 p-0 text-center">
+                            <button class="btn btn-link text-decoration-none text-uppercase text-muted small fw-bold w-100 py-3"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#soundfontCollapse"
+                                    aria-expanded="true"
+                                    aria-controls="soundfontCollapse">
+                                Soundfont & Preset <span class="ms-1">▾</span>
+                            </button>
+                        </div>
+
+                        <div id="soundfontCollapse" class="collapse show" data-bs-parent="#pad-form">
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <!-- SoundFont Dropdown -->
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-uppercase text-muted">SoundFont</label>
+                                        {{ form.file_name }}
+                                        {% if form.file_name.errors %}
+                                            <div class="text-danger small">{{ form.file_name.errors }}</div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Preset + Browser Button -->
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-uppercase text-muted">Preset (Bank:Program)</label>
+                                        <div class="input-group">
+                                            {{ form.preset }}
+                                            <button class="btn btn-outline-primary browse-presets-btn" type="button" title="Browse Presets">
+                                                🔍
+                                            </button>
+                                        </div>
+                                        {% if form.preset.errors %}
+                                            <div class="text-danger small">{{ form.preset.errors }}</div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Preset Display Name -->
+                                    <div class="col-12">
+                                        <label class="form-label small fw-bold text-uppercase text-muted">Preset Display Name</label>
+                                        {{ form.preset_name }}
+                                        {% if form.preset_name.errors %}
+                                            <div class="text-danger small">{{ form.preset_name.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes, Velocity, Channel -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold text-uppercase text-muted">{{ form.notes_display.label }}</label>
+                            {{ form.notes_display }}
+                            <small class="form-text text-muted d-block mt-1">{{ form.notes_display.help_text }}</small>
+                            {% if form.notes_display.errors %}
+                                <div class="text-danger small">{{ form.notes_display.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-uppercase text-muted">Velocity (0-127)</label>
+                            {{ form.velocity }}
+                            {% if form.velocity.errors %}
+                                <div class="text-danger small">{{ form.velocity.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-uppercase text-muted">Fade In (seconds)</label>
+                            {{ form.fade_in_duration }}
+                            {% if form.fade_in_duration.errors %}
+                                <div class="text-danger small">{{ form.fade_in_duration.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button type="submit" class="btn btn-primary">
+                            {% if instance %}Update Pad{% else %}Create Pad{% endif %}
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="test-btn">
+                            🔊 Test
+                        </button>
+                        <a href="{% url 'pads' %}" class="btn btn-secondary" id="cancel-link">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preset Browser Modal -->
+<div class="modal fade" id="presetBrowserModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Browse Presets</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="preset-list" class="list-group"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const sfSelect = document.querySelector('[name="file_name"]');
+    const presetInput = document.querySelector('[name="preset"]');
+    const presetNameInput = document.querySelector('[name="preset_name"]');
+    const browseBtn = document.querySelector('.browse-presets-btn');
+    const testBtn = document.getElementById('test-btn');
+    let currentPresets = [];
+    let isTesting = false;
+
+    // Load presets when soundfont changes
+    sfSelect.addEventListener('change', function() {
+        loadPresetsForSoundFont(this.value);
+    });
+
+    // Browse button
+    browseBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        showPresetBrowser();
+    });
+
+    // Test button toggle
+    testBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (isTesting) {
+            stopTest();
+        } else {
+            startTest();
+        }
+    });
+
+    function loadPresetsForSoundFont(sfName) {
+        if (!sfName) return;
+        
+        fetch(`/get-presets-json/${sfName}/`)
+            .then(r => r.json())
+            .then(data => {
+                currentPresets = data.presets || [];
+                console.log('Loaded', currentPresets.length, 'presets');
+            })
+            .catch(e => console.error('Error loading presets:', e));
+    }
+
+    function showPresetBrowser() {
+        if (currentPresets.length === 0) {
+            // Load presets first if not already loaded
+            const sfName = sfSelect.value;
+            if (!sfName) {
+                return;
+            }
+            
+            fetch(`/get-presets-json/${sfName}/`)
+                .then(r => r.json())
+                .then(data => {
+                    currentPresets = data.presets || [];
+                    displayPresetBrowser();
+                })
+                .catch(e => console.error('Error loading presets:', e));
+            return;
+        }
+        
+        displayPresetBrowser();
+    }
+    
+    function displayPresetBrowser() {
+        const listEl = document.getElementById('preset-list');
+        listEl.innerHTML = '';
+
+        currentPresets.forEach(p => {
+            const item = document.createElement('a');
+            item.href = '#';
+            item.className = 'list-group-item list-group-item-action';
+            const presetId = `${String(p.bank).padStart(3, '0')}:${String(p.num).padStart(3, '0')}`;
+            item.textContent = `${presetId} - ${p.name}`;
+            item.onclick = (e) => {
+                e.preventDefault();
+                presetInput.value = presetId;
+                presetNameInput.value = p.name;
+                bootstrap.Modal.getInstance(document.getElementById('presetBrowserModal')).hide();
+            };
+            listEl.appendChild(item);
+        });
+
+        new bootstrap.Modal(document.getElementById('presetBrowserModal')).show();
+    }
+
+    function startTest() {
+        const fileNameValue = sfSelect.value;
+        let presetValue = presetInput.value;
+        const notesValue = document.querySelector('[name="notes_display"]').value;
+        const velocityValue = document.querySelector('[name="velocity"]').value;
+        const fadeInValue = document.querySelector('[name="fade_in_duration"]').value;
+
+        console.log('Test button clicked with:');
+        console.log('  file_name:', fileNameValue);
+        console.log('  preset (raw):', presetValue);
+        console.log('  notes:', notesValue);
+        console.log('  velocity:', velocityValue);
+        console.log('  fade_in_duration:', fadeInValue);
+
+        if (!fileNameValue || !presetValue || !notesValue) {
+            alert('Please fill in soundfont, preset, and notes first');
+            return;
+        }
+
+        // Extract just the "bank:program" part if it has extra text (e.g., "Piano 000:000")
+        const presetMatch = presetValue.match(/(\d{3}):(\d{3})/);
+        if (presetMatch) {
+            presetValue = `${presetMatch[1]}:${presetMatch[2]}`;
+        }
+
+        console.log('  preset (cleaned):', presetValue);
+
+        const formData = new FormData();
+        formData.append('file_name', fileNameValue);
+        formData.append('preset', presetValue);
+        formData.append('notes', notesValue);
+        formData.append('velocity', velocityValue);
+        formData.append('fade_in_duration', fadeInValue);
+        
+        // Add CSRF token
+        const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+        formData.append('csrfmiddlewaretoken', csrftoken);
+
+        fetch('/pad/test/start/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            console.log('Response:', data);
+            if (data.success) {
+                isTesting = true;
+                testBtn.classList.remove('btn-outline-secondary');
+                testBtn.classList.add('btn-danger');
+                testBtn.textContent = '⏹ Stop Test';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(e => alert('Error: ' + e));
+    }
+
+    function stopTest() {
+        const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', csrftoken);
+        
+        fetch('/pad/test/stop/', {
+            method: 'POST',
+            body: formData
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    isTesting = false;
+                    testBtn.classList.remove('btn-danger');
+                    testBtn.classList.add('btn-outline-secondary');
+                    testBtn.textContent = '🔊 Test';
+                }
+            })
+            .catch(e => console.error('Error:', e));
+    }
+
+    // Stop test when form is submitted or page unloads
+    const padForm = document.getElementById('pad-form');
+    const cancelLink = document.getElementById('cancel-link');
+    
+    async function handleFormSubmit(e) {
+        if (isTesting) {
+            e.preventDefault();
+            // Stop test and then submit the form
+            const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', csrftoken);
+            
+            try {
+                await fetch('/pad/test/stop/', {
+                    method: 'POST',
+                    body: formData
+                });
+            } catch (err) {
+                console.error('Error stopping test:', err);
+            }
+            
+            // After test stops, submit the form
+            setTimeout(() => {
+                isTesting = false;
+                padForm.submit();
+            }, 100);
+        }
+    }
+    
+    async function handleCancel(e) {
+        if (isTesting) {
+            e.preventDefault();
+            // Stop test and then navigate away
+            const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', csrftoken);
+            
+            try {
+                await fetch('/pad/test/stop/', {
+                    method: 'POST',
+                    body: formData
+                });
+            } catch (err) {
+                console.error('Error stopping test:', err);
+            }
+            
+            // After test stops, navigate to cancel link
+            isTesting = false;
+            window.location.href = cancelLink.href;
+        }
+    }
+    
+    padForm.addEventListener('submit', handleFormSubmit);
+    cancelLink.addEventListener('click', handleCancel);
+});
+</script>
+{% endblock %}

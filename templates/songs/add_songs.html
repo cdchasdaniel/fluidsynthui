@@ -54,8 +54,8 @@
                         </div>
 
                         <div class="row g-4 mb-4">
-                            <!-- Patch Selection (OneToOne) -->
-                            <div class="col-md-8">
+                            <!-- Patch Selection -->
+                            <div class="col-md-6">
                                 <div class="p-3 rounded shadow-sm song-card h-100">
                                     <label class="label-caps">Assigned Sound Patch</label>
                                     <div class="input-group">
@@ -65,14 +65,31 @@
                                     <div class="mt-2">
                                         <small class="text-muted">
                                             <i class="bi bi-info-circle"></i> 
-                                            Only available patches are listed (One-to-One).
+                                            Voice/instrument for this song.
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pad Selection -->
+                            <div class="col-md-6">
+                                <div class="p-3 rounded shadow-sm song-card h-100">
+                                    <label class="label-caps">Background Pad (Optional)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">🎸</span>
+                                        {{ form.pad }}
+                                    </div>
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            <i class="bi bi-info-circle"></i> 
+                                            Sustained chord pad (optional).
                                         </small>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Tempo Section -->
-                            <div class="col-md-4">
+                            <div class="col-md-12">
                                 <div class="p-3 rounded shadow-sm song-card h-100 text-center">
                                     <label class="label-caps">Global Tempo</label>
                                     <div class="d-flex justify-content-center align-items-center gap-2">

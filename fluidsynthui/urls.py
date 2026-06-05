@@ -19,6 +19,7 @@ from django.urls import path
 from patches import views as patches_view
 from songs import views as songs_view
 from set import views as sets_view
+from pads import views as pads_view
 from fluidsynthui import views as fluidsynthui_views
 
 urlpatterns = [
@@ -51,5 +52,13 @@ urlpatterns = [
     path('sets/active/song/metronome/softer/', songs_view.metronome_softer, name='metronome_softer'),
     path('sets/active/song/metronome/louder/', songs_view.metronome_louder, name='metronome_louder'),
     path('sets/active/song/mp3/stop/', songs_view.stop_active_song_mp3, name='stop_active_song_mp3'),
+    path('sets/active/song/pad/start/', sets_view.active_set_pad_start, name='active_set_pad_start'),
+    path('sets/active/song/pad/stop/', sets_view.active_set_pad_stop, name='active_set_pad_stop'),
+    path('pads/', pads_view.home, name='pads'),
+    path('pad/add/', pads_view.add_pad, name='add_pad'),
+    path('pad/edit/<int:pk>/', pads_view.add_pad, name='edit_pad'),
+    path('pad/usage/<int:pk>/', pads_view.pad_usage, name='pad_usage'),
+    path('pad/test/start/', pads_view.test_pad_start, name='test_pad_start'),
+    path('pad/test/stop/', pads_view.test_pad_stop, name='test_pad_stop'),
 
 ]

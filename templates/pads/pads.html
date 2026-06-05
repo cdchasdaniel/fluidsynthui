@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .pad-row { transition: all 0.2s ease; }
+    .pad-row:hover { background-color: #f8f9fa; }
+
+    /* Consistent icon styling */
+    .btn-icon { opacity: 0.6; transition: opacity 0.2s; border: none; background: none; }
+    .btn-icon:hover { opacity: 1; }
+
+    /* Specific colors for action types */
+    .btn-trash { color: #dc3545; }
+    .btn-edit { color: #0d6efd; }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+            <h2 class="mb-0">Pads List</h2>
+            <a href="{% url 'add_pad' %}" class="btn btn-primary btn-sm shadow-sm">
+                + Add New Pad
+            </a>
+        </div>
+
+        {% if messages %}
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                {% for message in messages %}
+                    <div>{{ message }}</div>
+                {% endfor %}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endif %}
+
+        {% if pads %}
+            <ul class="list-group shadow-sm">
+                {% for pad in pads %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center pad-row py-3">
+                        <!-- Left Section: Name and Info -->
+                        <div class="flex-grow-1">
+                            <a href="{% url 'edit_pad' pad.pk %}" class="text-decoration-none fw-bold text-dark">
+                                {{ pad.name }}
+                            </a>
+                            <div class="small text-muted">
+                                <span class="badge bg-secondary">{{ pad.file_name }}</span>
+                                <span class="badge bg-info">{{ pad.preset }}</span>
+                                <span class="badge bg-warning text-dark">{{ pad.preset_name }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Right Section: Action Icons -->
+                        <div class="d-flex gap-3 align-items-center ms-3">
+                            <!-- Edit Button -->
+                            <a href="{% url 'edit_pad' pad.pk %}" class="btn-icon btn-edit" title="Edit Pad">
+                                <span style="font-size: 1.1rem;">✏️</span>
+                            </a>
+
+                            <!-- Delete Button -->
+                            <form method="POST" action="{% url 'edit_pad' pad.pk %}" style="display: inline;" onsubmit="return confirm('Delete pad?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="_method" value="DELETE">
+                                <button type="submit" class="btn-icon btn-trash" title="Delete Pad">
+                                    <span style="font-size: 1.1rem;">🗑️</span>
+                                </button>
+                            </form>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="alert alert-warning" role="alert">
+                No pads yet. <a href="{% url 'add_pad' %}">Create one now!</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

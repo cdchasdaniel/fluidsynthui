@@ -3,6 +3,7 @@ from pathlib import Path
 from django.conf import settings
 
 from patches.models import Patch
+from pads.models import Pad
 from .models import Song
 
 
@@ -15,6 +16,7 @@ class SongForm(forms.ModelForm):
             'tempo',
             'time_signature',
             'patch',
+            'pad',
             'mp3_slot_1',
             'mp3_slot_2',
             'mp3_slot_3',
@@ -56,6 +58,10 @@ class SongForm(forms.ModelForm):
             'patch': forms.Select(attrs={
                 'class': 'form-select patch-select-width'
             }),
+            # Dropdown for Pad selection
+            'pad': forms.Select(attrs={
+                'class': 'form-select patch-select-width'
+            }),
             'mp3_slot_1': forms.Select(attrs={'class': 'form-select'}),
             'mp3_slot_2': forms.Select(attrs={'class': 'form-select'}),
             'mp3_slot_3': forms.Select(attrs={'class': 'form-select'}),
@@ -82,6 +88,11 @@ class SongForm(forms.ModelForm):
         # Patch is a ForeignKey (many songs can share a patch) — show all patches
         self.fields['patch'].queryset = Patch.objects.all()
         self.fields['patch'].required = False
+        
+        # Pad is a ForeignKey (many songs can share a pad) — show all pads
+        self.fields['pad'].queryset = Pad.objects.all()
+        self.fields['pad'].required = False
+        
         self.fields['notes'].required = False
         self.fields['tempo'].required = False
 

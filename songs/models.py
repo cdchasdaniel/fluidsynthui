@@ -1,6 +1,7 @@
 from django.db import models
 
 from patches.models import Patch
+from pads.models import Pad
 
 
 class Song(models.Model):
@@ -19,6 +20,8 @@ class Song(models.Model):
     )
     # Allow multiple songs to reference the same Patch (many-to-one)
     patch = models.ForeignKey(Patch, on_delete=models.CASCADE, null=True, blank=True, related_name='songs')
+    # Optional pad (sustained chord background)
+    pad = models.ForeignKey(Pad, on_delete=models.SET_NULL, null=True, blank=True, related_name='songs')
     mp3_slot_1 = models.CharField(max_length=255, null=True, blank=True)
     mp3_slot_2 = models.CharField(max_length=255, null=True, blank=True)
     mp3_slot_3 = models.CharField(max_length=255, null=True, blank=True)

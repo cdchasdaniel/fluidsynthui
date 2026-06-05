@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'patches.apps.PatchesConfig',
     'songs.apps.SongsConfig',
     'set.apps.SetConfig',
+    'pads.apps.PadsConfig',
 ]
 
 MIDDLEWARE = [

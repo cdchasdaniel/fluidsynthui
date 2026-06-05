@@ -422,3 +422,85 @@ def stream_deck(request):
     return render(request, 'sets/stream_deck.html', {
         'current_song': current_song,
     })
+
+
+def active_set_pad_start(request):
+    """Start playing the pad for the active song (POST or GET)."""
+    if request.method not in ['POST', 'GET']:
+        return JsonResponse({'error': 'POST or GET required'}, status=405)
+
+    try:
+        active = _get_active_set()
+        if not active:
+            return JsonResponse({'success': False, 'error': 'No active set'}, status=404)
+
+        from .models import SetSong
+        ss = SetSong.objects.filter(set=active, active=True).select_related('song').first()
+        if not ss:
+            return JsonResponse({'success': False, 'error': 'No active song'}, status=404)
+
+        song = ss.song
+        pad = song.pad
+        if not pad:
+            return JsonResponse({
+                'success': False,
+                'error': 'No pad configured for this song'
+            }, status=400)
+
+        # Start pad using PadManager
+        pad_manager = getattr(settings, 'PAD_MANAGER', None)
+        if not pad_manager:
+            return JsonResponse({
+                'success': False,
+                'error': 'Pad manager not available'
+            }, status=500)
+
+        if pad_manager.start_pad(pad):
+            return JsonResponse({
+                'success': True,
+                'pad_name': pad.name,
+                'song_name': song.name,
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Failed to start pad'
+            }, status=500)
+
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)
+
+
+def active_set_pad_stop(request):
+    """Stop playing the pad (POST or GET)."""
+    if request.method not in ['POST', 'GET']:
+        return JsonResponse({'error': 'POST or GET required'}, status=405)
+
+    try:
+        pad_manager = getattr(settings, 'PAD_MANAGER', None)
+        if not pad_manager:
+            return JsonResponse({
+                'success': False,
+                'error': 'Pad manager not available'
+            }, status=500)
+
+        if pad_manager.stop_pad():
+            return JsonResponse({'success': True})
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Failed to stop pad'
+            }, status=500)
+
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)
