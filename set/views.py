@@ -504,3 +504,83 @@ def active_set_pad_stop(request):
             'error': str(e),
             'traceback': traceback.format_exc()
         }, status=500)
+
+
+def active_set_pad_toggle(request):
+    """Toggle pad playback for the active song (start if stopped, stop if playing)."""
+    if request.method not in ['POST', 'GET']:
+        return JsonResponse({'error': 'POST or GET required'}, status=405)
+
+    try:
+        pad_manager = getattr(settings, 'PAD_MANAGER', None)
+        if not pad_manager:
+            return JsonResponse({
+                'success': False,
+                'error': 'Pad manager not available'
+            }, status=500)
+
+        # Check if pad is currently playing
+        is_playing = pad_manager.is_pad_playing()
+
+        if is_playing:
+            # Stop the pad
+            if pad_manager.stop_pad():
+                return JsonResponse({
+                    'success': True,
+                    'action': 'stopped',
+                    'is_playing': False
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Failed to stop pad'
+                }, status=500)
+        else:
+            # Start the pad
+            try:
+                active = _get_active_set()
+                if not active:
+                    return JsonResponse({'success': False, 'error': 'No active set'}, status=404)
+
+                from .models import SetSong
+                ss = SetSong.objects.filter(set=active, active=True).select_related('song').first()
+                if not ss:
+                    return JsonResponse({'success': False, 'error': 'No active song'}, status=404)
+
+                song = ss.song
+                pad = song.pad
+                if not pad:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'No pad configured for this song'
+                    }, status=400)
+
+                if pad_manager.start_pad(pad):
+                    return JsonResponse({
+                        'success': True,
+                        'action': 'started',
+                        'is_playing': True,
+                        'pad_name': pad.name,
+                        'song_name': song.name,
+                    })
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Failed to start pad'
+                    }, status=500)
+
+            except Exception as e:
+                import traceback
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e),
+                    'traceback': traceback.format_exc()
+                }, status=500)
+
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)

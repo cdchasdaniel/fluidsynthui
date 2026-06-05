@@ -54,6 +54,7 @@ urlpatterns = [
     path('sets/active/song/mp3/stop/', songs_view.stop_active_song_mp3, name='stop_active_song_mp3'),
     path('sets/active/song/pad/start/', sets_view.active_set_pad_start, name='active_set_pad_start'),
     path('sets/active/song/pad/stop/', sets_view.active_set_pad_stop, name='active_set_pad_stop'),
+    path('sets/active/song/pad/toggle/', sets_view.active_set_pad_toggle, name='active_set_pad_toggle'),
     path('pads/', pads_view.home, name='pads'),
     path('pad/add/', pads_view.add_pad, name='add_pad'),
     path('pad/edit/<int:pk>/', pads_view.add_pad, name='edit_pad'),
