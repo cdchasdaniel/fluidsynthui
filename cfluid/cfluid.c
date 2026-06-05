@@ -262,7 +262,7 @@ err:
 
 int cleanup_midi_device(void)
 {
-    stop_mp3_playback();
+    stop_mp3_playback(-1);  /* Stop all MP3 slots on cleanup */
 
     /* Clean up */
     if(g_mdriver != NULL) delete_fluid_midi_driver(g_mdriver);

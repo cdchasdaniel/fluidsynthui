@@ -115,15 +115,23 @@ get_soundfont_count = lib.get_soundfont_count
 get_soundfont_count.argtypes = []
 get_soundfont_count.restype = ctypes.c_int
 
-# int play_mp3_file(const char *file_path);
-play_mp3_file = _resolve_symbol('play_mp3_file')
-play_mp3_file.argtypes = [ctypes.c_char_p]
-play_mp3_file.restype = ctypes.c_int
+# int play_mp3_file(const char *file_path, int slot);
+_play_mp3_file_c = _resolve_symbol('play_mp3_file')
+_play_mp3_file_c.argtypes = [ctypes.c_char_p, ctypes.c_int]
+_play_mp3_file_c.restype = ctypes.c_int
 
-# int stop_mp3_playback(void);
-stop_mp3_playback = _resolve_symbol('stop_mp3_playback')
-stop_mp3_playback.argtypes = []
-stop_mp3_playback.restype = ctypes.c_int
+# int stop_mp3_playback(int slot);
+_stop_mp3_playback_c = _resolve_symbol('stop_mp3_playback')
+_stop_mp3_playback_c.argtypes = [ctypes.c_int]
+_stop_mp3_playback_c.restype = ctypes.c_int
+
+def play_mp3_file(file_path, slot=0):
+    """Play an MP3 file for a specific slot (0-7). Stops only that slot's audio."""
+    return _play_mp3_file_c(file_path, slot)
+
+def stop_mp3_playback(slot=-1):
+    """Stop MP3 playback. slot=-1 stops all; 0-7 stops only that slot."""
+    return _stop_mp3_playback_c(slot)
 
 # int set_mp3_slot_path(int slot, const char *file_path);
 set_mp3_slot_path = _resolve_symbol('set_mp3_slot_path')

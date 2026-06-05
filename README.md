@@ -26,6 +26,7 @@ Originally developed for running on a **Raspberry Pi connected to a Yamaha Keybo
 
 - Python 3.8+
 - FluidSynth library
+- `mpg123` (Linux runtime dependency for MP3 trigger playback)
 - SQLite (included with Python)
 - SoundFont files (.sf2)
 - C compiler (gcc, clang, or MSVC) - only needed if compiling the C extension
@@ -51,7 +52,7 @@ Originally developed for running on a **Raspberry Pi connected to a Yamaha Keybo
 
 4. **Install FluidSynth:**
    - macOS: `brew install fluid-synth`
-   - Linux: `apt-get install fluidsynth` or `yum install fluidsynth`
+   - Linux: `apt-get install fluidsynth mpg123` or `yum install fluidsynth mpg123`
    - Windows: Download from [FluidSynth website](https://www.fluidsynth.org/)
 
 For detailed FluidSynth and C-extension setup (installing development headers, pkg-config checks, and building the `cfluid` library), see [SETUP.md](SETUP.md).

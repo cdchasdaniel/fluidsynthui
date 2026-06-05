@@ -86,7 +86,7 @@ class SongForm(forms.ModelForm):
         self.fields['tempo'].required = False
 
         mp3_dir = Path(settings.BASE_DIR) / 'static' / 'mp3'
-        choices = [('', '-- No MP3 --')]
+        choices = [('', 'No File')]
         if mp3_dir.exists():
             files = sorted([f.name for f in mp3_dir.iterdir() if f.is_file() and f.suffix.lower() == '.mp3'])
             choices.extend([(name, name) for name in files])

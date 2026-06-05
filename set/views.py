@@ -1,6 +1,5 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
-from fluidsynthui.settings import FLUID_SYNTH
 from set.forms import SetForm
 from .models import Set
 from songs.models import Song
@@ -60,7 +59,8 @@ def _ensure_active_setsong(active):
 
 def _apply_song_patch_if_any(song):
     """Apply the patch associated with a Song, if one exists."""
-    if not FLUID_SYNTH:
+    synth = getattr(settings, 'FLUID_SYNTH', None)
+    if not synth:
         print("No synth manager available")
         return
 
@@ -82,7 +82,7 @@ def _apply_song_patch_if_any(song):
                 'low_note': 'C0',
                 'high_note': 'G10',
             }
-            FLUID_SYNTH.apply_patch(
+            synth.apply_patch(
                 [default_voice],
                 None,
                 {
@@ -92,8 +92,8 @@ def _apply_song_patch_if_any(song):
                     'level': 0.9,
                 },
             )
-            if hasattr(FLUID_SYNTH, 'apply_song_mp3_slots'):
-                FLUID_SYNTH.apply_song_mp3_slots(song)
+            if hasattr(synth, 'apply_song_mp3_slots'):
+                synth.apply_song_mp3_slots(song)
             return
 
     voices_data = list(patch.voices.all().values(
@@ -107,9 +107,9 @@ def _apply_song_patch_if_any(song):
         'level': patch.reverb_level,
     }
     print(f"Applying patch for song {song.name}")
-    FLUID_SYNTH.apply_patch(voices_data, patch.id, reverb_settings)
-    if hasattr(FLUID_SYNTH, 'apply_song_mp3_slots'):
-        FLUID_SYNTH.apply_song_mp3_slots(song)
+    synth.apply_patch(voices_data, patch.id, reverb_settings)
+    if hasattr(synth, 'apply_song_mp3_slots'):
+        synth.apply_song_mp3_slots(song)
 
 
 def _get_active_set():

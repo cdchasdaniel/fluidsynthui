@@ -2,12 +2,14 @@
 
 This file documents the commands to install FluidSynth development headers, verify `pkg-config`, and build the `cfluid` C extension used by this project.
 
-1) Install FluidSynth dev headers and build tools (Debian/Ubuntu / Raspberry Pi OS):
+1) Install FluidSynth dev headers, `mpg123` runtime, and build tools (Debian/Ubuntu / Raspberry Pi OS):
 
 ```bash
 sudo apt update
-sudo apt install -y pkg-config libfluidsynth-dev build-essential
+sudo apt install -y pkg-config libfluidsynth-dev mpg123 build-essential
 ```
+
+`mpg123` is required at runtime for MP3 trigger playback on Linux (CC16-CC23).
 
 2) Verify `pkg-config` sees FluidSynth:
 
