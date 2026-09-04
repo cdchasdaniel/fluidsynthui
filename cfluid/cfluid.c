@@ -371,8 +371,8 @@ int route_notes_to_channel(int channel, int min_note, int max_note, int volume, 
     /* Set note range with transpose */
     fluid_midi_router_rule_set_param1(rule, min_note, max_note, 1.0, transpose);
     
-    /* Set velocity range with volume offset */
-    fluid_midi_router_rule_set_param2(rule, 0, 127, 0.0, volume);
+    /* Preserve incoming velocity untouched (scale 1.0, no offset) so key attack dynamics pass through */
+    fluid_midi_router_rule_set_param2(rule, 0, 127, 1.0, 0);
     
     /* Add the rule to the router */
     if(fluid_midi_router_add_rule(g_router, rule, FLUID_MIDI_ROUTER_RULE_NOTE) != FLUID_OK)
@@ -387,6 +387,9 @@ int route_notes_to_channel(int channel, int min_note, int max_note, int volume, 
     
     /* Also route volume control for this channel */
     route_volume_to_channel(channel);
+    
+    /* Apply the configured patch volume as an initial channel volume (CC 7), not a velocity override */
+    fluid_synth_cc(g_synth, channel, 7, volume);
     
     return 0;
 }
