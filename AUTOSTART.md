@@ -129,7 +129,8 @@ journalctl --user -u fluidsynthui-control.service -n 50
 **Can't connect from network:**
 - Check firewall: `sudo ufw status`
 - Verify Django ALLOWED_HOSTS in `fluidsynthui/settings.py` includes your Pi's IP
-- Confirm server is listening: `sudo ss -tuln | grep 8000`
+- Confirm server is listening: `sudo ss -tuln | grep 8080`
 
-**Port 8000 already in use:**
-- Edit `start_server.sh` and change `0.0.0.0:8000` to a different port like `0.0.0.0:8080`
+**Port 8080 already in use:**
+- Find what's using it: `sudo lsof -i :8080`
+- Edit `start_server.sh` and change `0.0.0.0:8080` to a different port

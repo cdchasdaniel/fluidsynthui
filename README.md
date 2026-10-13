@@ -16,7 +16,9 @@ Originally developed for running on a **Raspberry Pi connected to a Yamaha Keybo
 
 - **Patch Management**: Create complex multi-voice patches with individual settings per voice (volume, transpose, sustain, keyboard range)
 - **Global Reverb Controls**: Configure reverb room size, damping, width, and level for each patch
-- **Song Organization**: Associate songs with patches, store notes and tempo information
+- **Song Organization**: Associate songs with patches, store notes, tempo, and time signature
+- **Metronome**: Per-song tempo/time-signature metronome using a dedicated FluidSynth instance, controllable via start/stop/faster/slower/louder/softer endpoints
+- **Chord Pads**: Sustained background chords (multiple notes from one soundfont/preset, with optional fade-in) that can be attached to a song and started/stopped/toggled independently of the main synth
 - **Set/Setlist Management**: Build performance sets with ordered song lists and location tracking
 - **SoundFont Support**: Use industry-standard SoundFont (.sf2) files for high-quality synthesis
 - **Bootstrap UI**: Modern, responsive interface using Bootstrap 5
@@ -155,6 +157,10 @@ fluidsynthui/              # Main Django project directory
 │   ├── models.py
 │   ├── views.py
 │   └── migrations/
+├── pads/                  # Chord/pad management app
+│   ├── models.py
+│   ├── views.py
+│   └── migrations/
 ├── cfluid/                # C extension for FluidSynth
 ├── sf/                    # SoundFont files (.sf2)
 ├── static/                # Static files (CSS, JS)
@@ -181,8 +187,16 @@ fluidsynthui/              # Main Django project directory
 
 1. Navigate to the Songs section
 2. Click "Add Song"
-3. Enter song details (name, notes, tempo)
+3. Enter song details (name, notes, tempo, time signature)
 4. Associate with a patch
+5. Optionally associate a chord Pad and/or assign MP3 files to the 8 MP3 pad slots
+
+### Using the Metronome and Chord Pads
+
+While a set is active, the metronome and chord pad for the current song can be controlled via
+the endpoints listed in the [API](#api) section below (e.g. from a Stream Deck or the
+`/sets/stream-deck/` page). The metronome uses the song's `tempo`/`time_signature`; the chord
+pad plays whatever `Pad` is attached to the current song.
 
 ### Creating a Set
 
@@ -236,16 +250,44 @@ You can use these endpoints with external control devices:
 
 ### Response Format
 
-Endpoints return JSON with the current song information:
+Endpoints return JSON describing the newly active song:
 ```json
 {
-  "success": true,
-  "current_song": "Song Name",
-  "song_index": 1,
-  "total_songs": 10,
-  "set_name": "Active Set Name"
+  "song": {"id": 12, "name": "Song Name"},
+  "current_song_name": "Song Name"
 }
 ```
+If there is no next/previous song (end/start of the setlist) or no active set, `song` and
+`current_song_name` are `null`, or an `error` key is returned (e.g. `{"error": "No active set"}`).
+
+### Other Control Endpoints
+
+These additional fixed URLs are also designed for external control surfaces (e.g. Stream Deck):
+
+| Endpoint | Purpose |
+|---|---|
+| `GET/POST /sets/active/song/first/activate/` | Jump to the first song in the active set |
+| `GET/POST /sets/active/song/last/activate/` | Jump to the last song in the active set |
+| `GET /sets/active/song/current/` | Get the currently active song |
+| `POST /sets/active/song/metronome/start/` | Start the metronome for the active song's tempo |
+| `POST /sets/active/song/metronome/stop/` | Stop the metronome |
+| `POST /sets/active/song/metronome/faster/` / `slower/` | Adjust metronome tempo |
+| `POST /sets/active/song/metronome/louder/` / `softer/` | Adjust metronome volume |
+| `POST /sets/active/song/mp3/stop/` | Stop any MP3 pad currently playing (CC16-23 triggers) |
+| `GET/POST /sets/active/song/pad/start/` / `stop/` / `toggle/` | Control the active song's chord pad |
+| `GET /sets/stream-deck/` | Simple full-screen page showing the current song with navigation buttons |
+
+The standalone control daemon in [service_control.py](service_control.py) (listening on port
+`8081` by default) exposes separate endpoints for starting/stopping the whole Django service
+itself via `systemctl --user`:
+
+```
+GET http://127.0.0.1:8081/service/status/
+GET http://127.0.0.1:8081/service/start/
+GET http://127.0.0.1:8081/service/stop/
+```
+
+See [AUTOSTART.md](AUTOSTART.md) for setting this up as a systemd user service.
 
 
 ## Models
@@ -263,8 +305,15 @@ Endpoints return JSON with the current song information:
 - Keyboard range (low/high note)
 
 ### Song
-- Song metadata (name, notes, tempo)
+- Song metadata (name, notes, tempo, time signature)
 - Associated with a patch
+- Optional associated Pad (sustained background chord)
+- Up to 8 MP3 pad slots (mapped to MIDI CC16-CC23) for triggered sample playback
+
+### Pad
+- A sustained chord: a soundfont/preset plus a list of MIDI note numbers
+- Configurable velocity and fade-in duration
+- Played through a separate FluidSynth instance managed by `PadManager` ([songs/pad_manager.py](songs/pad_manager.py))
 
 ### Set
 - Performance setlist

@@ -25,6 +25,17 @@ cd cfluid
 make lib
 ```
 
+This builds only `libcfluid.so` (the main synth engine). The metronome and chord/pad
+features load their own separate FluidSynth instances from `libmetronome.so` and
+`libpad.so`. Build everything at once with:
+
+```bash
+cd cfluid
+make all
+```
+
+or build them individually with `make metronome` / `make pad`.
+
 4) If FluidSynth was installed to a non-standard prefix (for example `/usr/local`) and `pkg-config` can't find it, set these env vars before building:
 
 ```bash
@@ -47,7 +58,6 @@ sudo ldconfig
 
 After installing development headers from source, re-run the `pkg-config` checks and then `make lib` in `cfluid`.
 
-If you want, I can also add an automated script to check dependencies and build the extension.
 
 ## Note about Django dev-server autoreloader
 
