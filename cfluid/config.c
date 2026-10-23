@@ -51,6 +51,11 @@ int parse_config_file(const char *config_path, config_t *config, char *soundfont
             strncpy(soundfont_path, value, 511);
             soundfont_path[511] = '\0';
         }
+        else if(strcmp(key, "mp3_max_upload_mb") == 0)
+        {
+            /* Consumed by the Django MP3 library, not FluidSynth. */
+            continue;
+        }
         else
         {
             /* Store other settings */

@@ -1,13 +1,10 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 
 from songs.forms import SongForm
 from songs.models import Song
 from patches.models import Patch
-from patches.synth import stop_mp3_playback
 from django.contrib import messages
 
 
@@ -306,22 +303,6 @@ def metronome_louder(request):
             'success': False,
             'error': str(e),
             'traceback': traceback.format_exc()
-        }, status=500)
-
-
-@csrf_exempt
-@require_POST
-def stop_active_song_mp3(request):
-    """Stop currently playing MP3 launched from cfluid."""
-    try:
-        stop_mp3_playback()
-        return JsonResponse({'success': True})
-    except Exception as e:
-        import traceback
-        return JsonResponse({
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc(),
         }, status=500)
 
 

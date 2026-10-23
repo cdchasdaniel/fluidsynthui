@@ -398,32 +398,6 @@ def add_set(request, pk=None):
     return render(request, 'sets/add_set.html', {'form': form})
 
 
-def stream_deck(request):
-    """Stream deck view with Prev and Next buttons."""
-    active = _get_active_set()
-    if not active:
-        return render(request, 'sets/stream_deck.html', {
-            'current_song': None,
-        })
-    
-    ordered = _ordered_setsongs(active)
-    if not ordered:
-        return render(request, 'sets/stream_deck.html', {
-            'current_song': None,
-        })
-    
-    # Find current song
-    current_idx = next((i for i, ss in enumerate(ordered) if ss.active), None)
-    if current_idx is None:
-        current_idx = 0
-    
-    current_song = ordered[current_idx].song.name if current_idx < len(ordered) else None
-    
-    return render(request, 'sets/stream_deck.html', {
-        'current_song': current_song,
-    })
-
-
 def active_set_pad_start(request):
     """Start playing the pad for the active song (POST or GET)."""
     if request.method not in ['POST', 'GET']:

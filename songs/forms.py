@@ -1,6 +1,5 @@
 from django import forms
-from pathlib import Path
-from django.conf import settings
+from mp3.utils import get_mp3_directory
 
 from patches.models import Patch
 from pads.models import Pad
@@ -96,11 +95,13 @@ class SongForm(forms.ModelForm):
         self.fields['notes'].required = False
         self.fields['tempo'].required = False
 
-        mp3_dir = Path(settings.BASE_DIR) / 'static' / 'mp3'
+        mp3_dir = get_mp3_directory()
         choices = [('', 'No File')]
-        if mp3_dir.exists():
-            files = sorted([f.name for f in mp3_dir.iterdir() if f.is_file() and f.suffix.lower() == '.mp3'])
-            choices.extend([(name, name) for name in files])
+        files = {
+            f.name for f in mp3_dir.iterdir()
+            if f.is_file() and f.suffix.lower() == '.mp3'
+        }
+        choices.extend((name, name) for name in sorted(files, key=str.casefold))
 
         for idx in range(1, 9):
             field_name = f'mp3_slot_{idx}'

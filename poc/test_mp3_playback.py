@@ -20,7 +20,7 @@ from patches.synth import play_mp3_file, stop_mp3_playback
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Play an MP3 file via cfluid C bridge")
-    parser.add_argument("--file", default="wind.mp3", help="MP3 filename inside static/mp3")
+    parser.add_argument("--file", default="wind.mp3", help="MP3 filename inside media/mp3")
     parser.add_argument(
         "--stop-after",
         type=float,
@@ -29,7 +29,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    mp3_path = PROJECT_ROOT / "static" / "mp3" / args.file
+    mp3_path = PROJECT_ROOT / "media" / "mp3" / args.file
 
     if not mp3_path.exists():
         print(f"ERROR: File not found: {mp3_path}")

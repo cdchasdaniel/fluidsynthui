@@ -118,6 +118,12 @@ int init_midi_device(const char *config_path)
     {
         const char *key = config.keys[i];
         const char *value = config.values[i];
+
+        /* This setting is consumed by the Django MP3 library, not FluidSynth. */
+        if(strcmp(key, "mp3_max_upload_mb") == 0)
+        {
+            continue;
+        }
         
         /* Check if value looks like a number (try int/float first) */
         char *endptr;

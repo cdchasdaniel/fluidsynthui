@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .deck-display { font-size: 1.5rem; font-weight: 600; overflow-wrap: anywhere; }
+    .deck-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: .75rem; }
+    .deck-button { min-height: 92px; white-space: normal; }
+    .deck-button .filename { display: block; font-size: .78rem; font-weight: 400; overflow-wrap: anywhere; }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Stream Deck</h1>
+        <div class="deck-display" id="songDisplay">{{ current_song|default:"No song active" }}</div>
+    </div>
+</div>
+
+<section class="mb-4" aria-label="Song navigation">
+    <h2 class="h6 text-uppercase text-muted mb-2">Songs</h2>
+    <div class="deck-grid">
+        <button class="btn btn-success deck-button" data-get-url="{% url 'active_set_activate_first' %}" data-refresh="true">FIRST</button>
+        <button class="btn btn-secondary deck-button" data-get-url="{% url 'active_set_activate_prev' %}" data-refresh="true">PREVIOUS</button>
+        <button class="btn btn-primary deck-button" data-get-url="{% url 'active_set_activate_next' %}" data-refresh="true">NEXT</button>
+        <button class="btn btn-danger deck-button" data-get-url="{% url 'active_set_activate_last' %}" data-refresh="true">LAST</button>
+    </div>
+</section>
+
+<section class="mb-4" aria-label="MP3 playback">
+    <h2 class="h6 text-uppercase text-muted mb-2">MP3 Triggers</h2>
+    <div class="deck-grid mb-2">
+        {% for slot in mp3_slots %}
+        <button class="btn btn-outline-primary deck-button mp3-play-button" data-url="{% url 'mp3_play_slot' slot.number %}" {% if not slot.filename %}disabled{% endif %}>
+            BUTTON {{ slot.number }}
+            <span class="filename">{{ slot.filename|default:"No MP3 assigned" }}</span>
+        </button>
+        {% endfor %}
+    </div>
+    <button class="btn btn-outline-danger deck-button" id="mp3StopButton" data-url="{% url 'mp3_stop' %}">STOP MP3</button>
+</section>
+
+<section class="mb-4" aria-label="Metronome controls">
+    <h2 class="h6 text-uppercase text-muted mb-2">Metronome</h2>
+    <div class="deck-grid">
+        <button class="btn btn-success deck-button" data-get-url="{% url 'metronome_start' %}">START METRONOME</button>
+        <button class="btn btn-danger deck-button" data-get-url="{% url 'metronome_stop' %}">STOP METRONOME</button>
+    </div>
+</section>
+
+<section class="mb-4" aria-label="Pad controls">
+    <h2 class="h6 text-uppercase text-muted mb-2">Pad</h2>
+    <div class="deck-grid">
+        <button class="btn btn-success deck-button" data-get-url="{% url 'active_set_pad_start' %}">START PAD</button>
+        <button class="btn btn-danger deck-button" data-get-url="{% url 'active_set_pad_stop' %}">STOP PAD</button>
+    </div>
+</section>
+
+<section aria-label="Service controls">
+    <h2 class="h6 text-uppercase text-muted mb-2">Service</h2>
+    <div class="deck-grid">
+        <button class="btn btn-outline-success deck-button" id="serviceStartBtn">START SERVICE</button>
+        <button class="btn btn-outline-danger deck-button" id="serviceStopBtn">STOP SERVICE</button>
+    </div>
+</section>
+
+<script>
+    async function callJson(url, method = 'GET') {
+        const response = await fetch(url, { method });
+        const data = await response.json();
+        if (!response.ok || data.success === false) {
+            throw new Error(data.error || `Request failed (${response.status})`);
+        }
+        return data;
+    }
+
+    document.querySelectorAll('[data-get-url]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            try {
+                const data = await callJson(button.dataset.getUrl);
+                if (data.current_song_name) {
+                    document.getElementById('songDisplay').textContent = data.current_song_name;
+                }
+                if (button.dataset.refresh) {
+                    location.reload();
+                }
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+    });
+
+    document.querySelectorAll('.mp3-play-button').forEach((button) => {
+        button.addEventListener('click', async () => {
+            try {
+                await callJson(button.dataset.url, 'POST');
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+    });
+
+    document.getElementById('mp3StopButton').addEventListener('click', async (event) => {
+        try {
+            await callJson(event.currentTarget.dataset.url, 'POST');
+        } catch (error) {
+            alert(error.message);
+        }
+    });
+
+    document.getElementById('serviceStartBtn').addEventListener('click', async () => {
+        try {
+            await callJson('http://localhost:8081/service/start/');
+            alert('Service starting...');
+            setTimeout(() => location.reload(), 2000);
+        } catch (error) {
+            alert(`Failed to start service: ${error.message}`);
+        }
+    });
+
+    document.getElementById('serviceStopBtn').addEventListener('click', async () => {
+        try {
+            await callJson('http://localhost:8081/service/stop/');
+            alert('Service stopping...');
+            setTimeout(() => location.reload(), 2000);
+        } catch (error) {
+            alert(`Failed to stop service: ${error.message}`);
+        }
+    });
+</script>
+{% endblock %}

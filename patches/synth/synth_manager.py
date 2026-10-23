@@ -7,6 +7,7 @@ from django.db import transaction
 from django.db.models import F
 from set.models import Set, SetSong
 from patches.models import Patch
+from mp3.utils import get_mp3_directory
 from . import init_midi_device, cleanup_midi_device, set_channel_preset, route_notes_to_channel, route_sustain_to_channel, set_reverb, get_soundfont_by_name, clear_router, set_mp3_slot_path
 from ..utils import note_to_midi
 
@@ -52,7 +53,7 @@ class FluidMidiManager:
 
     def apply_song_mp3_slots(self, song):
         """Push active song MP3 slot file paths to C bridge for CC16-CC23 triggers."""
-        mp3_root = Path(settings.BASE_DIR) / 'static' / 'mp3'
+        mp3_root = get_mp3_directory()
         for slot in range(1, 9):
             mp3_name = getattr(song, f'mp3_slot_{slot}', None)
             if not mp3_name:

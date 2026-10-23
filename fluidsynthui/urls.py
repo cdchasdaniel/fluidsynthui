@@ -21,6 +21,8 @@ from songs import views as songs_view
 from set import views as sets_view
 from pads import views as pads_view
 from fluidsynthui import views as fluidsynthui_views
+from mp3 import views as mp3_views
+from streamdeck import views as streamdeck_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -36,7 +38,12 @@ urlpatterns = [
     path('songs/add/', songs_view.add_song, name='add_song'),
     path('songs/edit/<int:pk>/', songs_view.add_song, name='edit_song'),
     path('sets', sets_view.sets, name='sets'), 
-    path('sets/stream-deck/', sets_view.stream_deck, name='stream_deck'),
+    path('stream-deck/', streamdeck_views.home, name='stream_deck'),
+    path('mp3/', mp3_views.library, name='mp3_library'),
+    path('mp3/upload/', mp3_views.upload, name='mp3_upload'),
+    path('mp3/delete/', mp3_views.delete, name='mp3_delete'),
+    path('mp3/play/<int:slot>/', mp3_views.play_slot, name='mp3_play_slot'),
+    path('mp3/stop/', mp3_views.stop, name='mp3_stop'),
     path('sets/add/', sets_view.add_set, name='add_set'),
     path('sets/edit/<int:pk>/', sets_view.add_set, name='edit_set'),
     path('sets/activate/<int:pk>/', sets_view.activate_set, name='activate_set'),
@@ -51,7 +58,6 @@ urlpatterns = [
     path('sets/active/song/metronome/slower/', songs_view.metronome_slower, name='metronome_slower'),
     path('sets/active/song/metronome/softer/', songs_view.metronome_softer, name='metronome_softer'),
     path('sets/active/song/metronome/louder/', songs_view.metronome_louder, name='metronome_louder'),
-    path('sets/active/song/mp3/stop/', songs_view.stop_active_song_mp3, name='stop_active_song_mp3'),
     path('sets/active/song/pad/start/', sets_view.active_set_pad_start, name='active_set_pad_start'),
     path('sets/active/song/pad/stop/', sets_view.active_set_pad_stop, name='active_set_pad_stop'),
     path('sets/active/song/pad/toggle/', sets_view.active_set_pad_toggle, name='active_set_pad_toggle'),

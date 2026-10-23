@@ -17,6 +17,8 @@ Originally developed for running on a **Raspberry Pi connected to a Yamaha Keybo
 - **Patch Management**: Create complex multi-voice patches with individual settings per voice (volume, transpose, sustain, keyboard range)
 - **Global Reverb Controls**: Configure reverb room size, damping, width, and level for each patch
 - **Song Organization**: Associate songs with patches, store notes, tempo, and time signature
+- **MP3 Library**: Upload and manage MP3 cues under `media/mp3`, then assign them to song buttons
+- **Stream Deck Controls**: Use the `/stream-deck/` page or POST playback endpoints to control the active song's MP3 cues
 - **Metronome**: Per-song tempo/time-signature metronome using a dedicated FluidSynth instance, controllable via start/stop/faster/slower/louder/softer endpoints
 - **Chord Pads**: Sustained background chords (multiple notes from one soundfont/preset, with optional fade-in) that can be attached to a song and started/stopped/toggled independently of the main synth
 - **Set/Setlist Management**: Build performance sets with ordered song lists and location tracking
@@ -87,14 +89,15 @@ For detailed FluidSynth and C-extension setup (installing development headers, p
 
 ## Configuration
 
-### FluidSynth Settings
+### FluidSynth and MP3 Settings
 
-All FluidSynth audio and MIDI settings are configured in `fluidsynth.cfg` in the project root. This file is read when the application starts.
+FluidSynth audio and MIDI settings, plus the MP3 upload size limit, are configured in `fluidsynth.cfg` in the project root. This file is read when the application starts. The platform-specific examples `fluidsynth mac.cfg` and `fluidsynth_raspberry_pi.cfg` also include the upload limit; copy/rename the appropriate file to `fluidsynth.cfg` for the current system.
 
 **Example configuration:**
 ```ini
 # FluidSynth Configuration File
 soundfont_path = sf
+mp3_max_upload_mb = 100
 audio.driver = alsa
 audio.period-size = 64
 audio.periods = 2
@@ -104,6 +107,7 @@ midi.autoconnect = 1
 
 **Key settings:**
 - `soundfont_path`: Path to the directory containing SoundFont files (can be relative to project root or absolute)
+- `mp3_max_upload_mb`: Maximum upload size for an MP3 file, in megabytes
 - `audio.driver`: Audio backend (alsa, pulseaudio, jack, oss, etc.)
 - `audio.period-size`: Buffer size in frames (lower = less latency, more CPU)
 - `audio.periods`: Number of audio periods (2-16)
@@ -161,9 +165,12 @@ fluidsynthui/              # Main Django project directory
 │   ├── models.py
 │   ├── views.py
 │   └── migrations/
+├── mp3/                   # MP3 library, upload/delete, and playback API
+├── streamdeck/            # Stream Deck controller page
 ├── cfluid/                # C extension for FluidSynth
 ├── sf/                    # SoundFont files (.sf2)
 ├── static/                # Static files (CSS, JS)
+├── media/mp3/              # Uploaded MP3 files (created as needed)
 ├── templates/             # HTML templates
 ├── poc/                   # Proof-of-concept scripts
 ├── manage.py              # Django management script
@@ -189,13 +196,20 @@ fluidsynthui/              # Main Django project directory
 2. Click "Add Song"
 3. Enter song details (name, notes, tempo, time signature)
 4. Associate with a patch
-5. Optionally associate a chord Pad and/or assign MP3 files to the 8 MP3 pad slots
+5. Optionally associate a chord Pad and/or assign files from the MP3 Library to the 8 MP3 slots
+
+### Managing MP3 Cues
+
+1. Open **MP3 Library** from the navigation or home page.
+2. Upload `.mp3` files. Uploads are stored in `media/mp3/`; the maximum size is set by `mp3_max_upload_mb` in `fluidsynth.cfg`.
+3. Assign files to the song's eight MP3 buttons in the Add/Edit Song form. Files assigned to songs cannot be deleted; the library reports which songs use them.
+4. While that song is active, trigger a button with the Stream Deck page or the playback API below. Starting a cue stops any previously playing MP3 first.
 
 ### Using the Metronome and Chord Pads
 
 While a set is active, the metronome and chord pad for the current song can be controlled via
 the endpoints listed in the [API](#api) section below (e.g. from a Stream Deck or the
-`/sets/stream-deck/` page). The metronome uses the song's `tempo`/`time_signature`; the chord
+`/stream-deck/` page). The metronome uses the song's `tempo`/`time_signature`; the chord
 pad plays whatever `Pad` is attached to the current song.
 
 ### Creating a Set
@@ -208,7 +222,7 @@ pad plays whatever `Pad` is attached to the current song.
 
 ## API
 
-FluidSynthUI exposes a REST API that allows external devices (such as Stream Deck, tablets, or control surfaces) to control the playback and navigation of sets and songs.
+FluidSynthUI exposes HTTP endpoints that allow external devices (such as Stream Deck, tablets, or control surfaces) to control playback and navigation of sets and songs.
 
 ### Previous/Next Endpoints
 
@@ -245,8 +259,8 @@ You can use these endpoints with external control devices:
    ```
 
 3. **Authentication:**
-   - For local network usage, endpoints may work without authentication
-   - For remote access, configure authentication headers as needed
+   - The control endpoints do not currently implement authentication
+   - Keep access limited to a trusted local network; authentication headers are not supported
 
 ### Response Format
 
@@ -273,9 +287,12 @@ These additional fixed URLs are also designed for external control surfaces (e.g
 | `POST /sets/active/song/metronome/stop/` | Stop the metronome |
 | `POST /sets/active/song/metronome/faster/` / `slower/` | Adjust metronome tempo |
 | `POST /sets/active/song/metronome/louder/` / `softer/` | Adjust metronome volume |
-| `POST /sets/active/song/mp3/stop/` | Stop any MP3 pad currently playing (CC16-23 triggers) |
+| `POST /mp3/play/<slot>/` (`<slot>` is 1-8) | Play the active song's MP3 assigned to that button; stops any currently playing MP3 first |
+| `POST /mp3/stop/` | Stop all MP3 playback |
 | `GET/POST /sets/active/song/pad/start/` / `stop/` / `toggle/` | Control the active song's chord pad |
-| `GET /sets/stream-deck/` | Simple full-screen page showing the current song with navigation buttons |
+| `GET /stream-deck/` | Stream Deck page for song navigation, MP3 playback, metronome, and pad controls |
+
+The MP3 playback endpoints are CSRF-exempt for hardware callers and do not currently require authentication. Use them only on a trusted network.
 
 The standalone control daemon in [service_control.py](service_control.py) (listening on port
 `8081` by default) exposes separate endpoints for starting/stopping the whole Django service
@@ -308,7 +325,7 @@ See [AUTOSTART.md](AUTOSTART.md) for setting this up as a systemd user service.
 - Song metadata (name, notes, tempo, time signature)
 - Associated with a patch
 - Optional associated Pad (sustained background chord)
-- Up to 8 MP3 pad slots (mapped to MIDI CC16-CC23) for triggered sample playback
+- Up to 8 MP3 trigger slots (mapped to MIDI CC16-CC23), with files managed by the MP3 Library
 
 ### Pad
 - A sustained chord: a soundfont/preset plus a list of MIDI note numbers

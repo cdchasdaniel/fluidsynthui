@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">MP3 Library</h1>
+        <p class="text-muted mb-0">Files are stored in <code>media/mp3</code>.</p>
+    </div>
+    <form method="post" enctype="multipart/form-data" action="{% url 'mp3_upload' %}" class="d-flex flex-wrap gap-2 align-items-center">
+        {% csrf_token %}
+        <input class="form-control" type="file" name="file" accept=".mp3,audio/mpeg" required>
+        <button class="btn btn-primary" type="submit">Upload MP3</button>
+    </form>
+</div>
+
+<p class="small text-muted">Maximum file size: {{ max_upload_mb }} MB. Duplicate filenames are not allowed.</p>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th scope="col">File</th>
+                <th scope="col">Size</th>
+                <th scope="col">Used by</th>
+                <th scope="col" class="text-end">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in files %}
+            <tr>
+                <td>{{ file.name }}</td>
+                <td>{{ file.size|filesizeformat }}</td>
+                <td>
+                    {% for song in file.songs %}{{ song.name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">Not assigned</span>{% endfor %}
+                </td>
+                <td class="text-end">
+                    <form method="post" action="{% url 'mp3_delete' %}" onsubmit="return confirm('Delete {{ file.name|escapejs }}?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="filename" value="{{ file.name }}">
+                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted py-4">No MP3 files available.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
