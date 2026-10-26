@@ -92,8 +92,6 @@ def _apply_song_patch_if_any(song):
                     'level': 0.9,
                 },
             )
-            if hasattr(synth, 'apply_song_mp3_slots'):
-                synth.apply_song_mp3_slots(song)
             return
 
     voices_data = list(patch.voices.all().values(
@@ -108,8 +106,6 @@ def _apply_song_patch_if_any(song):
     }
     print(f"Applying patch for song {song.name}")
     synth.apply_patch(voices_data, patch.id, reverb_settings)
-    if hasattr(synth, 'apply_song_mp3_slots'):
-        synth.apply_song_mp3_slots(song)
 
 
 def _get_active_set():

@@ -29,31 +29,20 @@ static int g_sfont_count = 0;
 static int midi_event_handler(void *data, fluid_midi_event_t *event)
 {
     fluid_midi_router_t *router = (fluid_midi_router_t *)data;
-    int type = fluid_midi_event_get_type(event);
-
-    /* CC type may be reported as either 11 or 0xB0 depending on source. */
-    if(type == 11 || type == 0xB0)
-    {
-        int channel = fluid_midi_event_get_channel(event);
-        int cc = fluid_midi_event_get_control(event);
-        int value = fluid_midi_event_get_value(event);
-
-        printf("[MIDI-CC] ch=%d cc=%d value=%d\n", channel, cc, value);
-        fflush(stdout);
-        mp3_handle_cc_event(cc, value);
-    }
-
     return fluid_midi_router_handle_midi_event(router, event);
 }
 
-int init_midi_device(const char *config_path)
+static int configure_settings_from_file(
+    const char *config_path,
+    char *sf_dir,
+    size_t sf_dir_size,
+    char *fallback_path,
+    size_t fallback_path_size)
 {
-    char sf_dir[512] = {0};
     char sf_dir_temp[512] = {0};
-    char fallback_path[512];
     char config_dir[512];
     config_t config = {0};
-    
+
     /* Parse config file */
     if(config_path == NULL || config_path[0] == '\0')
     {
@@ -88,22 +77,22 @@ int init_midi_device(const char *config_path)
     /* If soundfont_path wasn't in config, use default */
     if(sf_dir_temp[0] == '\0')
     {
-        snprintf(sf_dir, sizeof(sf_dir), "%s/sf", config_dir);
+        snprintf(sf_dir, sf_dir_size, "%s/sf", config_dir);
     }
     else if(sf_dir_temp[0] == '/')
     {
         /* Absolute path - use as is */
-        strncpy(sf_dir, sf_dir_temp, sizeof(sf_dir) - 1);
-        sf_dir[sizeof(sf_dir) - 1] = '\0';
+        strncpy(sf_dir, sf_dir_temp, sf_dir_size - 1);
+        sf_dir[sf_dir_size - 1] = '\0';
     }
     else
     {
         /* Relative path - make it relative to config directory */
-        snprintf(sf_dir, sizeof(sf_dir), "%s/%s", config_dir, sf_dir_temp);
+        snprintf(sf_dir, sf_dir_size, "%s/%s", config_dir, sf_dir_temp);
     }
     
     printf("Final soundfont directory: %s\n", sf_dir);
-    snprintf(fallback_path, sizeof(fallback_path), "%s/defaultGM.sf2", sf_dir);
+    snprintf(fallback_path, fallback_path_size, "%s/defaultGM.sf2", sf_dir);
     
     /* Create the settings. */
     g_settings = new_fluid_settings();
@@ -112,7 +101,7 @@ int init_midi_device(const char *config_path)
         puts("Failed to create the settings!");
         return -1;
     }
- 
+
     /* Apply settings from config file */
     for(int i = 0; i < config.count; i++)
     {
@@ -160,13 +149,37 @@ int init_midi_device(const char *config_path)
             printf("Warning: Could not set %s = %s\n", key, value);
         }
     }
- 
+
+    return 0;
+}
+
+static void cleanup_midi_resources(void)
+{
+    if(g_mdriver != NULL) delete_fluid_midi_driver(g_mdriver);
+    if(g_router != NULL) delete_fluid_midi_router(g_router);
+    if(g_adriver != NULL) delete_fluid_audio_driver(g_adriver);
+    if(g_synth != NULL) delete_fluid_synth(g_synth);
+    if(g_settings != NULL) delete_fluid_settings(g_settings);
+    if(g_soundfonts != NULL) free_soundfonts(g_soundfonts, g_sfont_count);
+
+    g_settings = NULL;
+    g_synth = NULL;
+    g_adriver = NULL;
+    g_mdriver = NULL;
+    g_router = NULL;
+    g_sfont_id = -1;
+    g_soundfonts = NULL;
+    g_sfont_count = 0;
+}
+
+static int initialize_synth_and_soundfonts(const char *sf_dir, const char *fallback_path)
+{
     /* Create the synthesizer. */
     g_synth = new_fluid_synth(g_settings);
     if(g_synth == NULL)
     {
         puts("Failed to create the synth!");
-        goto err;
+        return -1;
     }
  
     /* Load all available soundfonts from the specified directory */
@@ -186,8 +199,14 @@ int init_midi_device(const char *config_path)
     if(g_sfont_id == FLUID_FAILED)
     {
         puts("Loading soundfonts failed!");
-        goto err;
+        return -1;
     }
+
+    return 0;
+}
+
+static void initialize_audio_driver(void)
+{
  
     /* Create the audio driver. The synthesizer starts playing as soon
        as the driver is created. If the configured audio driver fails
@@ -229,13 +248,16 @@ int init_midi_device(const char *config_path)
     {
         printf("Audio driver created successfully.\n");
     }
+}
  
+static int initialize_midi_io(void)
+{
     /* Create the MIDI router for note routing */
     g_router = new_fluid_midi_router(g_settings, fluid_synth_handle_midi_event, g_synth);
     if(g_router == NULL)
     {
         puts("Failed to create the MIDI router!");
-        goto err;
+        return -1;
     }
     
     /* Create the MIDI driver that uses the router */
@@ -243,6 +265,33 @@ int init_midi_device(const char *config_path)
     if(g_mdriver == NULL)
     {
         puts("Failed to create the MIDI driver!");
+        return -1;
+    }
+
+    return 0;
+}
+
+int init_midi_device(const char *config_path)
+{
+    char sf_dir[512] = {0};
+    char fallback_path[512];
+
+    if(configure_settings_from_file(
+        config_path, sf_dir, sizeof(sf_dir), fallback_path, sizeof(fallback_path)) != 0)
+    {
+        cleanup_midi_resources();
+        return -1;
+    }
+
+    if(initialize_synth_and_soundfonts(sf_dir, fallback_path) != 0)
+    {
+        goto err;
+    }
+
+    initialize_audio_driver();
+
+    if(initialize_midi_io() != 0)
+    {
         goto err;
     }
     
@@ -250,42 +299,14 @@ int init_midi_device(const char *config_path)
     return 0;
     
 err:
-    /* Clean up on error */
-    if(g_mdriver != NULL) delete_fluid_midi_driver(g_mdriver);
-    if(g_router != NULL) delete_fluid_midi_router(g_router);
-    if(g_adriver != NULL) delete_fluid_audio_driver(g_adriver);
-    if(g_synth != NULL) delete_fluid_synth(g_synth);
-    if(g_settings != NULL) delete_fluid_settings(g_settings);
-    
-    g_settings = NULL;
-    g_synth = NULL;
-    g_adriver = NULL;
-    g_mdriver = NULL;
-    g_router = NULL;
-    
+    cleanup_midi_resources();
     return -1;
 }
 
 int cleanup_midi_device(void)
 {
     stop_mp3_playback(-1);  /* Stop all MP3 slots on cleanup */
-
-    /* Clean up */
-    if(g_mdriver != NULL) delete_fluid_midi_driver(g_mdriver);
-    if(g_router != NULL) delete_fluid_midi_router(g_router);
-    if(g_adriver != NULL) delete_fluid_audio_driver(g_adriver);
-    if(g_synth != NULL) delete_fluid_synth(g_synth);
-    if(g_settings != NULL) delete_fluid_settings(g_settings);
-    if(g_soundfonts != NULL) free_soundfonts(g_soundfonts, g_sfont_count);
-    
-    g_settings = NULL;
-    g_synth = NULL;
-    g_adriver = NULL;
-    g_mdriver = NULL;
-    g_router = NULL;
-    g_soundfonts = NULL;
-    g_sfont_count = 0;
-    
+    cleanup_midi_resources();
     return 0;
 }
 

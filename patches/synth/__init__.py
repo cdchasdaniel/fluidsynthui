@@ -132,8 +132,3 @@ def play_mp3_file(file_path, slot=0):
 def stop_mp3_playback(slot=-1):
     """Stop MP3 playback. slot=-1 stops all; 0-7 stops only that slot."""
     return _stop_mp3_playback_c(slot)
-
-# int set_mp3_slot_path(int slot, const char *file_path);
-set_mp3_slot_path = _resolve_symbol('set_mp3_slot_path')
-set_mp3_slot_path.argtypes = [ctypes.c_int, ctypes.c_char_p]
-set_mp3_slot_path.restype = ctypes.c_int
