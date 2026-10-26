@@ -2,6 +2,12 @@
 
 A Django-based web application for managing MIDI patches, songs, and performance sets using FluidSynth sound synthesis.
 
+##YouTube
+Part 1: https://youtu.be/ig6fRvsAYPI?si=8onGnVIzf6REO9Jp
+Part 2: https://youtu.be/oPLLUSc62pM?si=N85l4I37uh6Zoa8v
+Part 3: https://youtu.be/vLshE7TkruA?si=Cgnwa2B1qHX51vzj
+Part 4: https://youtu.be/xrrB5ETUj0c?si=21v9-DotUKOMFCYI
+
 ## Overview
 
 FluidSynthUI is a comprehensive system for organizing and managing MIDI performances. It provides a web interface for:
