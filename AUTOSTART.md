@@ -15,6 +15,8 @@ Two independent systemd services:
    - Django development server
    - Can be stopped/started via the control daemon
 
+Bitfocus Companion (port 8000) is a separate service installed by its own installer; see [README.md](README.md#bitfocus-companion). It is not managed by these unit files.
+
 ## Step 1: Switch to CLI Mode (Optional)
 
 If you want the Pi to boot in CLI mode instead of GUI:

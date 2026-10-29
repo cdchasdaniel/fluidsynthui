@@ -7,6 +7,7 @@ A Django-based web application for managing MIDI patches, songs, and performance
 - [Part 2](https://youtu.be/oPLLUSc62pM?si=N85l4I37uh6Zoa8v)
 - [Part 3](https://youtu.be/vLshE7TkruA?si=Cgnwa2B1qHX51vzj)
 - [Part 4](https://youtu.be/xrrB5ETUj0c?si=21v9-DotUKOMFCYI)
+- [Part 5](https://youtu.be/sA9pfv6TsMk?si=JjzPZo5KfbTeyq9J)
 
 ## Overview
 
@@ -17,6 +18,20 @@ FluidSynthUI is a comprehensive system for organizing and managing MIDI performa
 - Real-time MIDI synthesis using FluidSynth with SoundFont support
 
 Originally developed for running on a **Raspberry Pi connected to a Yamaha Keyboard** via USB MIDI, FluidSynthUI is designed to be lightweight and efficient. However, it supports any platform capable of running Python and FluidSynth, and works with a wide variety of MIDI devices and keyboards.
+
+## Bitfocus Companion
+
+Bitfocus Companion is an essential part of the system. It runs the Stream Deck and sends the HTTP requests (next/previous song, MP3 play/stop, service start/stop) to FluidSynthUI.
+
+On the Raspberry Pi, install it with the official installer:
+
+```bash
+curl https://raw.githubusercontent.com/bitfocus/companion-pi/main/install.sh | bash
+```
+
+- The installer sets Companion up as its own systemd service that starts at boot (`systemctl status companion`).
+- Its admin UI is at `http://<pi-ip>:8000`, separate from FluidSynthUI (port 8080) and the control daemon (port 8081).
+- Configure buttons with the HTTP actions described under [API](#api), using port 8080 for the app and 8081 for service start/stop.
 
 ## Features
 
@@ -40,6 +55,7 @@ Originally developed for running on a **Raspberry Pi connected to a Yamaha Keybo
 - SQLite (included with Python)
 - SoundFont files (.sf2)
 - C compiler (gcc, clang, or MSVC) - only needed if compiling the C extension
+- [Bitfocus Companion](https://bitfocus.io/companion) - drives the Stream Deck buttons (see [Bitfocus Companion](#bitfocus-companion))
 
 ## Installation
 
@@ -65,7 +81,7 @@ Originally developed for running on a **Raspberry Pi connected to a Yamaha Keybo
    - Linux: `apt-get install fluidsynth mpg123` or `yum install fluidsynth mpg123`
    - Windows: Download from [FluidSynth website](https://www.fluidsynth.org/)
 
-For detailed FluidSynth and C-extension setup (installing development headers, pkg-config checks, and building the `cfluid` library), see [SETUP.md](SETUP.md).
+For detailed FluidSynth and C-extension setup (installing development headers, pkg-config checks, and building the `cfluid` library), see [SETUP_RASPBERRY_PI.md](SETUP_RASPBERRY_PI.md) or [SETUP_MAC.md](SETUP_MAC.md).
 
 5. **Compile the C extension (optional):**
    ```bash
